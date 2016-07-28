@@ -19,7 +19,7 @@ On Github,
 
 - designate **develop** as the *default branch*;
 - make both branches *protected*, therefore `--force push` and certain other potentially dangerous things are not allowed;
-- make **master** *restricted* to a small number of designated users in terms of `push` privilege.
+- make **master** *restricted* to a small number of designated users in terms of `push` privilege. Ideally, a repo should have exactly **one release manager** who has `push` privilege to **master**. Some manager or team head who created the repo may automatically get the power to `push`, but they should **not** use it unless they are also the designated release manager.
 
 ## Release procedure
 
@@ -36,9 +36,11 @@ Bug fixes during pre-release testing:
 3. `merge` the fix branch into **master**.
 4. Continue pre-release testing on **master**.
 
+In this procedure, release (and pre-release testing) builds are always made out of the `HEAD` of **master**. This will give automation scripts happy.
+
 ## Hot fix on production
 
-Assume the version in production is always the latest release tag in **master**. If the process is followed, there should be no commits on **master** after this tag. (With a liberal team, however, there could be a few, which would make things a little more interesting. But I'm not going to talk about that scenario.)
+Assume the version in production is always the latest release tag in **master**. If the process is followed, there should be no commits on **master** after this tag. (With a liberal team, however, there could be a few, which would make things a little more messy. But by all means please avoid that. Stick to the *only-release-manager-pushs-to-master* policy.)
 
 1. Branch off of **master** to work on the fix.
 2. This puts **master** in the pre-release role and the new branch is a fix branch during pre-release testing. Follow the **release procedure** above from this point on.
