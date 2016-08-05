@@ -57,50 +57,48 @@ This is where daily development happens.
 3. Integrate new changes in **develop** into **feature-a**, **often**, like daily.
 
    If no one is collaborating on **feature-a** with you, then 
-   
+
    ```
    git checkout develop
    git pull
    git checkout feature-a
    git rebase develop -i
    ```
-   
+
    Regardless of collaboration, as long as your local work on **feature-a** has not been `push`ed to Github, hence is not yet visible to others, you can use `rebase`.
-   
+
    Otherwise, or in doubt,
-   
+
    ```
    git checkout develop
    git pull
    git checkout feature-a
    git merge develop
    ```
-   
+
 4. Integrate **feature-a** into **develop**, **at milestones**.
 
-  Strictly speaking, integrate **feature-a** into **develop** only if this feature is part of the upcoming release. And you want to integrate from time to time so that the progress is visible to collaborators.
-  
-  Practically, if this feature work is in a separate directory, and does not interfere with other code, the *upcoming release* does not matter much.
-  
-  Everytime you have finished a self-contained functionality and have brought **feature-a** back to a (reasonably) tested, functional state, consider making this progress visible to others by integrating it into **develop**. Depending on the modularity of your work, this may happen a couple times a week.
-  
-  First, integrate **develop** into **feature-a** as described above.
-  
-  Then, integrate **feature-a** into **develop**:
-  
-  
-  ```
-  git checkout develop
-  git pull    # this should show "Already up-to-date."
-  git merge feature-a [--no-ff]
-  git push
-  ```
-  
+   Strictly speaking, integrate **feature-a** into **develop** only if this feature is part of the upcoming release. And you want to integrate from time to time so that the progress is visible to collaborators.
+
+   Practically, if this feature work is in a separate directory, and does not interfere with other code, the *upcoming release* does not matter much.
+
+   Every time you have finished a self-contained functionality and have brought **feature-a** back to a (reasonably) tested, functional state, consider making this progress visible to others by integrating it into **develop**. Depending on the modularity of your work, this may happen a couple times a week.
+
+   First, integrate **develop** into **feature-a** as described above.
+
+   Then, integrate **feature-a** into **develop**:
+
+   ```
+   git checkout develop
+   git pull    # this should show "Already up-to-date."
+   git merge feature-a [--no-ff]
+   git push
+   ```
+
 5. Once **feature-a** has been integrated into **develop**, and you're done with the feature for good for a long period of time, delete branch **feature-a** both on your local machine and on Github.
 
 Sometimes a feature branch serves as a big 'base' branch for a large feature that is worked on by multiple developers. In this situation, the developers create branches off of this base feature branch. Their relation with this base branch is not unlike that of **feature-a** with **develop** as described above.
 
-   
 
 
 
