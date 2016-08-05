@@ -1,4 +1,7 @@
-# A Simply Successful Git Branching Model
+---
+layout: post
+title: A Simply Successful Git Branching Model
+---
 
 I'm designing this Git workflow based on the well known
 [A successful Git branching model](http://nvie.com/posts/a-successful-git-branching-model/) of Vincent Driessen (known as the **gitflow**), but somewhat simpler, hence the title. The target user is a team (an *organization* in Github terminology) that

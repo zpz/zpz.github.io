@@ -1,4 +1,7 @@
-# Why I Prefer Python to R for Data Work
+---
+layout: post
+title: Why I Prefer Python to R for Data Work
+---
 
 (This note was written in an attempt to dissuade my team from introducing R into the system.)
 
