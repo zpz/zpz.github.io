@@ -7,7 +7,7 @@ I'm designing this Git workflow based on the well known
 [A successful Git branching model](http://nvie.com/posts/a-successful-git-branching-model/) of Vincent Driessen (known as the **gitflow**), but somewhat simpler, hence the title. The target user is a team (an *organization* in Github terminology) that
 
 - does not practice rigorous continuous integration or automated testing, hence does not guarantee a certain branch is always in a *deployable* state;
-- has been somewhat liberal (read: sloppy) in the use of Git.
+- develops "service software"---meaning the mode of work is largely the deployment "head" moves forward; there is rarely a need to maintain multiple production versions simultaneously.
 
 I make two changes to the **gitflow**:
 
@@ -24,22 +24,23 @@ On Github,
 
 - designate **develop** as the *default branch*;
 - make both branches *protected*, therefore `--force push` and certain other potentially dangerous things are not allowed;
-- make **master** *restricted* to one or two users in terms of `push` privilege. These users act as the *release managers* for the repo. Some manager or team head who created the repo may automatically get the power to `push`, but they should **not** use the privilege unless they are also designated release managers.
-- `push` to **develop** branch should always be done by *pull requests*, thereby enforce code review.
+- make **master** *restricted* to one or two *release managers* in terms of `push` privilege. These release managers should be lead developers. Some project manager or team head who created the repo may automatically get the power to `push`, but they should **not** use the privilege unless they are also designated as release managers.
+- `push` to **develop** should always be done via *pull requests*, thereby help to enforce code review.
 
 ## Release procedure
 
-1. `merge` **develop** into **master**.
+1. `merge` **develop** into **master** (by a release manager)
 2. Test the `HEAD` of **master**.
 3. When ready, deploy the `HEAD` of **master**.
 4. Make a *release* on Github: `tag` the `HEAD` of **master** (using a tag name such as 'release-20160723'), write some release notes.
 5. `merge` **master** into **develop**.
+6. Delete all fix branches created during pre-release testing.
 
 Bug fixes during pre-release testing:
 
 1. Create a bug fix branch off of **master**.
 2. Basic testing in the fix branch.
-3. When ready, `merge` the fix branch into **master**.
+3. When ready, `merge` the fix branch into **master** (via pull requests, to be merged by a release manager).
 4. Continue pre-release testing on the `HEAD` of **master**. Therefore, this bug-fix excursion happens between steps 2 and 3 in the procedure above.
 
 In this procedure, release (and pre-release testing) builds are always made out of the `HEAD` of **master**. This will give automation scripts an easy time.
@@ -85,8 +86,10 @@ This is where daily development happens.
    
    Resolve conflicts, if any, of course.
    
-4. Run tests. Fix bugs until tests pass.
+   Run tests. Fix bugs until tests pass.
 
+   Push branch **feature-a** into the cloud.
+   
 5. Integrate **feature-a** into **develop**, **at milestones**.
 
    Strictly speaking, integrate **feature-a** into **develop** only if this feature is part of the next (i.e. upcoming) release. And you want to integrate from time to time so that the progress is visible to collaborators.
@@ -97,14 +100,7 @@ This is where daily development happens.
 
    First, integrate **develop** into **feature-a** as described above.
 
-   Then, integrate **feature-a** into **develop**:
-
-   ```
-   git checkout develop
-   git pull    # this should show "Already up-to-date."
-   git merge feature-a [--no-ff]
-   git push
-   ```
+   Then, go to Github online and create a **pull request** to merge **feature-a** into **develop**.
 
 6. Once **feature-a** has been integrated into **develop**, and you're done with the branch for good or for a indefinite period of time, delete branch **feature-a** both on your local machine and on Github.
 
