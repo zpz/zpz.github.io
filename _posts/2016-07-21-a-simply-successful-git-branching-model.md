@@ -61,7 +61,7 @@ Now suppose an urgent hox fix needs to be done on the version that is currently 
 This is where daily development happens.
 
 1. Create a new branch off of **develop**, with a descriptive name, like **feature-a**.
-2. Work on the feature.
+2. Work on the feature. `push` to cloud at least daily for safe storage.
 3. Integrate new changes in **develop** into **feature-a**, **often**, like daily.
 
    If no one is collaborating on branch **feature-a** with you, `rebase` has some advantages: 
