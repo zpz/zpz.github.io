@@ -9,9 +9,9 @@ title: Some Coding Tips for Python Projects
 * [Testing](#testing)
 * [A few more recommendations](#recommendations)
 
- 
-<a name="directory-structure"></a>
+
 ## Recommended directory structure for a Python project
+<a name="directory-structure"></a>
 
 ```
 project/
@@ -48,8 +48,8 @@ Here 'project' is synonym to a git repo.
 - `archive` is for any code segments that you have deleted from the "main line" but for some reason still want to keep a visible copy for reference.
 
 
-<a name="documentation"></a>
 ## Documentation
+<a name="documentation"></a>
 
 Do write documentation to help **yourself**, if not others. 
 
@@ -72,9 +72,9 @@ Do write documentation to help **yourself**, if not others.
    ```
    sphinx-quickstart
    ```
-   
+
    Make sure you make these particular choices:
-   
+
    ```
    Separate source and build directories (y/n) [n]: y
    autodoc: automatically insert docstrings from modules (y/n) [n]: y
@@ -83,7 +83,7 @@ Do write documentation to help **yourself**, if not others.
    viewcode: include links to the source code of documented Python objects (y/n) [n]: y
    Create Makefile? (y/n) [y]: y
    ```
-   
+
    In `doc/source/conf.py`, make sure the `extensions` list contains at least these items:
 
    * `sphinx.ext.autodoc`
@@ -102,43 +102,43 @@ Do write documentation to help **yourself**, if not others.
 4. `git commit` the files `doc/Makefile`, `doc/source/conf.py`, as well as the `*.rst` and other files you've created in `doc/source`. DO NOT `git commit` the generated material in `doc/build`.
 
 
-<a name="logging"></a>
 ## Logging
+<a name="logging"></a>
 
 Prefer logging to `print` in most cases.
 
 - The [twelve factor app](http://12factor.net/logs) advocates treating log events as an event stream, always sending the stream to standard output, and leaving capture of the stream into files to the execution environment.
 - In all modules that need to do logging, always have this, and only this, at the top of the module:
 
-	```python
-   import logging
-   logger = logging.getLogger(__name__)
-	```
-	
-	then use `logger.info()` etc to create log messages.
+  ```python
+  import logging
+  logger = logging.getLogger(__name__)
+  ```
 
-	Do not create custom names for the logger. The `__name__` mechanism will create a hierarchy of loggers following your
+  then use `logger.info()` etc to create log messages.
+
+  Do not create custom names for the logger. The `__name__` mechanism will create a hierarchy of loggers following your
 package structure, e.g. with loggers named
 
-	```
-   package1
-   package1.module1
-   package1.module1.submodule2
-	```
-	
-	Log messages will pass to higher levels in this hierarchy.
+  ```
+  package1
+  package1.module1
+  package1.module1.submodule2
+  ```
+
+  Log messages will pass to higher levels in this hierarchy.
 Customizing the logger names will disrupt this useful message forwarding.
 
 - In the `__init__.py` file in the top-level directory of your Python package,
 include this:
 
-	```python
-   # Set default logging handler to avoid "No handler found" warnings.
-   import logging
-   logging.getLogger(__name__).addHandler(logging.NullHandler())
-	```
-	
-	Do not add any other handler in your package code.
+  ```python
+  # Set default logging handler to avoid "No handler found" warnings.
+  import logging
+  logging.getLogger(__name__).addHandler(logging.NullHandler())
+  ```
+
+  Do not add any other handler in your package code.
 
 - Do not do any format, handler (e.g. using a file handler), log level,
 or other configuration in your package code. These belong in the *launch scripts* and should happen
@@ -151,16 +151,14 @@ at exactly **one** place in a running program.
   import time
 
   def config_logger(level='info', use_utc=True, datefmt=None, format=None, **kwargs):
-    # 'datefmt' and 'format', if passed in, are ignored.
-
     if use_utc:
       logging.Formatter.converter = time.gmtime
-      datefmt = '%Y-%m-%d %H:%M:%SZ'
+      datefmt = datefmt or '%Y-%m-%d %H:%M:%SZ'
     else:
       logging.Formatter.converter = time.localtime
-      datefmt = '%Y-%m-%d %H:%M:%S'
+      datefmt = datefmt or '%Y-%m-%d %H:%M:%S'
 
-    format = '[%(asctime)s; %(name)s, %(funcName)s, %(lineno)d; %(levelname)s]    %(message)s'
+    format = format or '[%(asctime)s; %(name)s, %(funcName)s, %(lineno)d; %(levelname)s]    %(message)s'
     level = getattr(logging, level.upper())
 
     logging.basicConfig(format=format, datefmt=datefmt, level=level, **kwargs)
@@ -168,16 +166,16 @@ at exactly **one** place in a running program.
 
 - Use the old-style string formatting (`%`), not the new-style string formatting (`str.format`).
   The following example should serve most of your fomatting needs:
-  
+
   ```python
   logger.info('Line %s (%s) has spent %.2f by hour %d', 'asd9123las', 'Huge Sale!', 28.97, 23) 
   ```
-  
-  [See here](https://pyformat.info) for more about formatting.
-  
 
-<a name="testing"></a>
+  [See here](https://pyformat.info) for more about formatting.
+
+
 ## Testing
+<a name="testing"></a>
 
 
 Write tests, and adopt a testing framework. My recommendation is `py.test`.
@@ -186,8 +184,9 @@ You do not need to `import pytest` unless you explicitly use `pytest` in the cod
 
 See [Directory Structure](#directory-structure) above for where to put the test files.
 
-<a name="recommendations"></a>
+
 ## A few more recommendations
+<a name="recommendations"></a>
 
 - Use 'snake-case' names; see [examples](https://google.github.io/styleguide/pyguide.html?showone=Naming#Naming).
 
