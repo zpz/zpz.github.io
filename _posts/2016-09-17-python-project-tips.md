@@ -144,13 +144,19 @@ include this:
 or other configuration in your package code. These belong in the *launch scripts* and should happen
 at exactly **one** place in a running program.
 
-  I basically call something like the following function in the launch script:
+  I basically call something like the following function in the launch script.
+  Usually ``level`` is the only argument I need to specify.
 
   ```python
   import logging
   import time
 
   def config_logger(level='info', use_utc=True, datefmt=None, format=None, **kwargs):
+    # 'level' is a string form of the logging levels: 'debug', 'info', 'warning', 'error', 'critical'.
+
+    if level not in [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]:
+      level = getattr(logging, level.upper())
+
     if use_utc:
       logging.Formatter.converter = time.gmtime
       datefmt = datefmt or '%Y-%m-%d %H:%M:%SZ'
@@ -159,7 +165,6 @@ at exactly **one** place in a running program.
       datefmt = datefmt or '%Y-%m-%d %H:%M:%S'
 
     format = format or '[%(asctime)s; %(name)s, %(funcName)s, %(lineno)d; %(levelname)s]    %(message)s'
-    level = getattr(logging, level.upper())
 
     logging.basicConfig(format=format, datefmt=datefmt, level=level, **kwargs)
   ```
