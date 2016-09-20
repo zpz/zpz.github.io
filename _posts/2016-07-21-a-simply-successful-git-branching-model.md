@@ -113,4 +113,4 @@ Do not resist re-organization if that improves structure, modularity, and mainta
 
 Within a repo, if some code is deprecated but you want to keep them for reference, **do not** use a dedicated branch to keep (indeed, hide) the code. Instead, move it to a non-interfering directory (such as `archive`) on the top level in the repo for such "horizontal separation".
 
-After some time, it may become clear that all the code does not belong in the same repo. You want to move part of the code out of the repo. Simply move the code into `archive` in the current repo (remember to add some notes), the copy it into its new home repo, which it will start with no history.
+After some time, it may become clear that all the code does not belong in the same repo, and you want to move part of the code out of the repo. No problem. Simply move the code into `archive` in the current repo (remember to add some notes), then copy it into its new home repo, where it will start with no history.
