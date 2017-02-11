@@ -10,8 +10,8 @@ The second situation is that the main program is in C++, and it calls some Pytho
 Both needs arise, but the first ("extension") is by far more common. We can find much more online resources about "extension" than about "embedding". However, the two uses share a lot of the tooling. Recently I needed to do both "extension" and "embedding". I plan to first write about my "embedding" experience in a few posts.
 
 
-1. Description of the problem
-==================
+Description of the problem
+==========================
 
 My main program is a realtime, low-latency, high-throughput, online sevice in C++. In a critical component, it runs some sophisticated modeling or "machine learning" algorithm to make a decision. I dediced to develop the modeling algorithm in Python in order to tap into its excellent data stack and modeling ecosystem. As a result, I needed to build an interface between the Python and C++ codes. To fix ideas, the Python code is listed below.
 
@@ -170,8 +170,8 @@ which later provides the `id` in calls to `retrieve` to identify the task whose 
 6. In this example code, I intentionally used a variety of data types (string, string list, numerical list, numerical scalar, etc) in order to test the embedding tools in later steps.
 
 
-2. Test it in Python
-===========
+Test it in Python
+=================
 
 I wrote a Python program to verify it works.
 
@@ -307,8 +307,8 @@ processed 770 cases per second
 No issues.
 
 
-3. First attempt using raw Python/C API
-========================
+First attempt using raw Python/C API
+====================================
 
 
 Now it's time to familiarize myself with the  Python/C API. The official documentation has a [tutorial](https://docs.python.org/3/extending/index.html) as well as a [reference manual](https://docs.python.org/3/c-api/index.html).
@@ -590,8 +590,8 @@ Engine::~Engine()
 ```
 
 
-4. Test it in C++
-==========
+Test it in C++
+==============
 
 My testing program is listed below.
 
@@ -796,8 +796,8 @@ clean:
 The test program ran with no issues.
 
 
-5. Looking back and forth
-===============
+Looking back and forth
+======================
 
 Let's look back at the use of Python/C API. While the test program ran with no issues, I knew it's just a start. For one thing, there are typically multiple slightly different functions in the API that do the same thing, therefore I expect the code listed above can be made cleaner.
 
