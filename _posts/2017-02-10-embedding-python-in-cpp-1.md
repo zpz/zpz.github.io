@@ -807,6 +807,6 @@ It turned out a much, much bigger pitfall is taking care of reference counts for
 
 In the next post I will explore third-party tools that are built on top of the raw API and make my job much, much, and so much easier.
 
-The code listed in this post is available at [https://github.com/zpz/python/tree/master/py4cc1](https://github.com/zpz/python/tree/master/py4cc1) and [https://github.com/zpz/python/tree/master/cc4py1](https://github.com/zpz/python/tree/master/cc4py1).
+The code listed in this post is available at [https://github.com/zpz/python](https://github.com/zpz/python).
 
 
