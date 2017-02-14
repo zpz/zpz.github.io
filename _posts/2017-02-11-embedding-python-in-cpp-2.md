@@ -100,6 +100,6 @@ TaskReceipt Engine::submit(
 
 Here we see tuple items are accessed the natural way (`z[0]`) instead of `PyTuple_GetItem(z, 0)`, and Python-to-C++ conversion uses the pattern `py_object.cast<target_type>()`.
 
-The complete code is available at [https://github.com/zpz/python](https://github.com/zpz/python). Please feel the contrast yourself with the older version at [https://github.com/zpz/python](https://github.com/zpz/python).
+The complete code is available at [https://github.com/zpz/python](https://github.com/zpz/python/cc4py1-b). Please feel the contrast yourself with the older version at [https://github.com/zpz/python](https://github.com/zpz/python/cc4py1-a).
 
 In the next post I will show how to pass a C++ vector to Python, where it behaviors like a Python list, without copying.
