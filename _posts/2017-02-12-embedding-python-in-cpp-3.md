@@ -490,7 +490,7 @@ Observations regarding C++ const correctness:
 
 
 
-# Scenario 4
+# Scenario 4: pass-by-reference in named arguments
 
 
 Code:
@@ -498,21 +498,6 @@ Code:
 ```
 #include "Python.h"
 #include "pybind11/pybind11.h"
-
-// Calling by ref has trouble with passing by keywords.
-// The following will not work:
-//
-//  auto kwargs = py::dict(py::arg("x") = &x);
-//  f(**kwargs);
-//
-//  f(py::arg("x") = &x);
-//
-// However, this works:
-//
-//  auto args = py::list();
-//  args.append(&x);
-//  f(*args);
-// This will pass `x` by reference.
 
 #include "util.h"
 
@@ -611,9 +596,31 @@ after `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1
 after `cumsum`, in C++ --- [1, 4, 9]
 ```
 
+Observations (some code and output are not shown):
 
+1. Pass-by-reference does not work in named arguments, i.e, the following do not work:
 
+   ```
+   auto kwargs = py::dict(py::arg("x") = &x);
+   f(**kwargs);
 
-The complete code is available at [https://github.com/zpz/python/tree/master/cc4py2/cc4py.cc](https://github.com/zpz/python/tree/master/cc4py2/cc4py.cc). Please feel the contrast yourself with the older version at [https://github.com/zpz/python/tree/master/cc4py1/cc4py.cc](https://github.com/zpz/python/tree/master/cc4py1/cc4py.cc).
+   f(py::arg("x") = &x);
+   ```
+   
+   This usage causes memory errors at destruction time.
+  
+   If the `&x` above is replaced by `x`, the code will work but that passes by value.
 
-In the next post I will show how to pass a C++ vector to Python, where it behaviors like a Python list, without copying.
+2. Pass-by-reference works in "star" arguments
+
+   ```
+   auto args = py::list();
+   args.append(&x);
+   f(*args);
+   ```
+   
+   This works, and passes by reference. Previously I have demonstrated that pass-by-reference works in direct positional arguments.
+   
+3. I guess the problem has to do with the memory management in `py::arg("x") = &x`. 
+
+The complete code is available at [https://github.com/zpz/python/].
