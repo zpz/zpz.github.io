@@ -92,7 +92,7 @@ void test_cast()
 {
     std::vector<int> intvec{1, 3, 5};
     std::vector<std::string> strvec{"abc", "def", "this is good"};
-    std::map<std::string, double> doublemap{{"first", 1.1}, {"second", 2.2}, {"third", 3.3}};
+    std::map<std::string, double> doublemap{ {"first", 1.1}, {"second", 2.2}, {"third", 3.3} };
     std::tuple<int, double, std::string> misctuple = std::make_tuple(123, 3.1415926, "Captain Cook");
 
     // explicit cast
@@ -201,7 +201,7 @@ void test_copy()
 {
     std::vector<int> intvec{1, 3, 5};
     std::vector<std::string> strvec{"abc", "def", "this is good"};
-    std::map<std::string, double> doublemap{{"first", 1.1}, {"second", 2.2}, {"third", 3.3}};
+    std::map<std::string, double> doublemap{ {"first", 1.1}, {"second", 2.2}, {"third", 3.3} };
 
     auto module = py::module::import("py4cc2.stl");
     auto cumsum = module.attr("cumsum");
@@ -343,7 +343,7 @@ void test_ref()
 {
     std::vector<int> intvec{1, 3, 5};
     std::vector<std::string> strvec{"abc", "def", "this is good"};
-    std::map<std::string, double> doublemap{{"first", 1.1}, {"second", 2.2}, {"third", 3.3}};
+    std::map<std::string, double> doublemap{ {"first", 1.1}, {"second", 2.2}, {"third", 3.3} };
 
     auto module = py::module::import("py4cc2.stl");
     py::module::import("py4cc2._cc11binds");        // ATTENTION! Python import.
