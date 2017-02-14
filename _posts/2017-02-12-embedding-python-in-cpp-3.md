@@ -176,7 +176,7 @@ Observations:
 
 
 
-# Scenario 2:
+# Scenario 2: pass by value
 
 I verified that with `#include "pybind11/stl.h"`, passing is by value, as demonstrated below.
 
@@ -187,7 +187,7 @@ Code:
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 
-#include "util.h"
+#include "util.h"  // Provides `print_vec`, `print_map`. On github.
 
 #include <iostream>
 #include <map>
@@ -265,9 +265,15 @@ Observations:
 
 
 
-# "Opaque" object binding
+# Binding code to enable pass-by-reference
+
+In order to pass a C++ STL container to Python "by reference", one needs to "bind" the container type of interest to a certain Python class (define in C++ using `pybind11` machinery), which "wraps" the STL container without data copying, and provides methods expected by Python code.
+
+`pybind11` provides these binding classes. One needs to expose these classes to Python in a Python module that is written in C++. The following is my module for this purpose. The file is located in the package `py4cc2`. Compile this file to create a shared library in the package folder, and `import` it in Python or C++.
 
 ```
+// File `_cc11binds.cc` in package `py4cc2`.
+
 // Compile:
 // c++ -O3 -shared -std=c++11 -fPIC -I /usr/local/include/python3.6m \
 //      `python-config --cflags --ldflags` _cc11binds.cc -o _cc11binds.so
@@ -293,29 +299,15 @@ PYBIND11_PLUGIN(_cc11binds) {
 ```
 
 
-# Scenario 3
+# Scenario 3: pass by reference, but watch out!
+
+The code below demonstrates various combinations of `#include "pybind11/stl.h"` and `#include "pybind11/stl_bind.h"`, with variables passed by name (`x`) or by pointer (`&x`). It often demonstrates the (non)effect of `const` on objects that get passed to Python.
 
 Code:
 
 ```
 #include "Python.h"
 #include "pybind11/pybind11.h"
-//#include "pybind11/stl.h"
-    // incuding this will enforce passing by value, even if using `&x` to pass
-
-// Do not `#include stl.h`,
-// and do `import _cc11binds`,
-// then `&x` will pass by ref, but `x` wil still pass by value.
-// STL containers become custom type on Python side.
-
-// Do `#include stl.h`,
-// then `&x` and `x` will both pass by value,
-// even with `import _cc11binds`.
-// STL containers become native Python `list`, `dict`, etc on Python side.
-
-// With
-// `const std::vector<..> & x`
-// Passing `&x` into Python will ignore `const`.
 
 #include "util.h"
 
@@ -354,17 +346,15 @@ void test_ref()
     std::map<std::string, double> doublemap{{"first", 1.1}, {"second", 2.2}, {"third", 3.3}};
 
     auto module = py::module::import("py4cc2.stl");
-    py::module::import("py4cc2._cc11binds");
+    py::module::import("py4cc2._cc11binds");        // ATTENTION! Python import.
     auto cumsum = module.attr("cumsum");
     auto mapadd = module.attr("mapadd");
 
     // Pass pointers.
 
     std::cout << "=== pass as `&x` ===" << std::endl;
-
-    std::cout << std::endl;
-    test_noconst(intvec, cumsum);
     
+    std::cout << std::endl;
     std::cout << "before `cumsum`, in C++ --- ";
     print_vec<>(intvec);
     cumsum(&intvec);
@@ -427,7 +417,6 @@ int main()
 }
 ```
 
-
 Output:
 
 ```
@@ -438,10 +427,6 @@ before `cumsum`, in C++ --- [1, 3, 5]
 before `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 3, 5]
 after `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 4, 9]
 after `cumsum`, in C++ --- [1, 4, 9]
-before `cumsum`, in C++ --- [1, 4, 9]
-before `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 4, 9]
-after `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 5, 14]
-after `cumsum`, in C++ --- [1, 5, 14]
 
 before `cumsum`, in C++ --- [abc, def, this is good]
 before `cumsum`, in Python --- <class 'py4cc2._cc11binds.StringVector'>: StringVector[abc, def, this is good]
@@ -455,10 +440,10 @@ after `mapadd`, in C++: {first:2.1, second:3.2, third:4.3, total:6.6}
 
 === pass as `x`===
 
-before `cumsum`, in C++ --- [1, 5, 14]
-before `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 5, 14]
-after `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 6, 20]
-after `cumsum`, in C++ --- [1, 5, 14]
+before `cumsum`, in C++ --- [1, 4, 9]
+before `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 4, 9]
+after `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 5, 14]
+after `cumsum`, in C++ --- [1, 4, 9]
 
 before `cumsum`, in C++ --- [abc, abcdef, abcdefthis is good]
 before `cumsum`, in Python --- <class 'py4cc2._cc11binds.StringVector'>: StringVector[abc, abcdef, abcdefthis is good]
@@ -472,18 +457,37 @@ after `mapadd`, in C++: {first:2.1, second:3.2, third:4.3, total:6.6}
 
 === test const ===
 
+before `cumsum`, in C++ --- [1, 4, 9]
+before `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 4, 9]
+after `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 5, 14]
+after `cumsum`, in C++ --- [1, 5, 14]
+
+=== test noconst ===
+
 before `cumsum`, in C++ --- [1, 5, 14]
 before `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 5, 14]
 after `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 6, 20]
 after `cumsum`, in C++ --- [1, 6, 20]
-
-=== test noconst ===
-
-before `cumsum`, in C++ --- [1, 6, 20]
-before `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 6, 20]
-after `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 7, 27]
-after `cumsum`, in C++ --- [1, 7, 27]
 ```
+
+Observations:
+
+1. The Python module `_cc11binds` created in the last section is `import`ed.
+2. The C++ code does not `#include "pybind11/stl_bind.h"`, nor `#include "pybind11/stl.h"`.
+3. When a STL container is passed by pointer (`&x`), the passing is by reference. Modifications to the input argument in Python functions are reflected in the original C++ object that got passed to Python.
+4. However, if the STL container is passed by name (`x`), the passing is by value, although the input argument is of the custom class rather than native Python container types.
+
+More observations (code modification and output are not show):
+
+1. With `#include "pybind11/stl.h"`, the passing is by value, be the variable passed by name (`x`) or pointer (`&x`), even if `_cc11binds` is `import`ed.
+2. In this case, the passed-in object in the Python function is of native Python types like `list` and `dict`.
+
+This seems to suggest that `import _c11binds` without `#include "pybind11/stl.h"` provides the best of both worlds: pass by value with `x`, and by reference with `&x`. However, notice that the passed-in object in Python is not of a built-in type, and the custom type does not need to provide the complete interface of the built-in type. Indeed, the bound `map` (corresponding to Python `dict`) does not have the `values()` method, for example. Moreover, passing-by-reference has restrictions in relation to named arguments; see the next section.
+
+Observations regarding C++ const correctness:
+
+1. If a "const" container is passed to Python by reference, then it can be modified in Python and the modifications are reflected in the original C++ container. In other words, "const-ness" is ignored. This is undesirable. Hopefully this will be fixed in the future.
+
 
 
 # Scenario 4
