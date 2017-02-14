@@ -3,17 +3,15 @@ layout: post
 title: Embedding Python in C++, Part 3
 ---
 
-In this post I will explore passing STL containers to Python in a variety of ways. The focus is to sort out how to pass containers by value and by reference. The `pybind11` documentation is limited, and not totally clear to me on this topic, therefore many of the findings below were obtained via trials. Some things turned out simpler than what the documentation suggests. 
+In this post I will explore passing STL containers to Python in a variety of ways. The focus is to sort out how to pass containers by value and by reference. The `pybind11` documentation is not totally clear to me on this topic, therefore some of the findings below were obtained via trials.
 
-Note that I do not know whether and how the behaviors listed below will change as the project evolves. 
-
-There are two headers relavent to this topic: `pybind11/stl.h` and `pybind11/stl_bind.h`.
+There are two headers relavent to this topic: `pybind11/stl.h` and `pybind11/stl_bind.h`. `stl.h` is responsible for converting a C++ STL container to a native Python object (such as `list` and `dict`) by copying, whereas `stl_bind.h` is responsible for passing a C++ STL container to Python in a custom class (not the native `list` and `dict`) that provides Pythonic behavior (such as `__getitm__` and `__setitem__`). This custom class "wraps" the C++ STL container and avoids data copying, hence enables "passing by reference" between C++ and Python.
 
 
 
 # Python testing code
 
-Below is the Python code I used to test operations on the objects passed in from C++. This is pure Python code with no hint that it is going to be called from C++. This is the sole module, besides `__init__.py`, in package `py4cc2`. The package is found on `PYTHONPATH` and is located independently of the C++ code that would call it.
+The Python code below operations on the objects that are passed in from C++. However, this is pure Python code unaware that it is going to be called from C++. This module resides in package `py4cc2`. The package is found on `PYTHONPATH` and is located independently of the C++ code that would call it.
 
 ```
 # File `stl.py` in package `py4cc2`.
@@ -37,9 +35,8 @@ def cumsum(x):
 
 def mapadd(x):
     # Add 1 to each value of a `dict`,
-    # then insert a new lement 'total': total.
+    # then insert a new element 'total' with the sum of the original elements.
     print('before `mapadd`,', show(x, False))
-    #total = sum(x.values())
     total = 0
     for k in x:
         v = x[k]
@@ -53,6 +50,10 @@ def mapadd(x):
 
 
 # Scenario 1: cast a C++ object to a Python object
+
+I tested two situations. First, explicitly cast a C++ STL container to a Python object, then call the objects Python methods. The code remains in C++; there is no Python packages or modules involved. Second, pass a C++ STL container to a Python function (called in C++ code), then inspect the input argument in the Python code of said function.
+
+Note that `stl.h` is `#include`d. Also not that at one point the Python module listed above is `import`ed.
 
 Code:
 
@@ -129,7 +130,6 @@ int main()
 }
 ```
 
-
 Output:
 
 ```
@@ -163,19 +163,22 @@ in Python --- <class 'list'>: ['abc', 'def', 'this is good']
 in Python --- <class 'dict'>: {'first': 1.1, 'second': 2.2, 'third': 3.3}
 
 in Python --- <class 'tuple'>: (123, 3.1415926, 'Captain Cook')
-
 ```
 
 Observations:
 
 1. `py::cast(x)` converts a C++ object to a Python object: `std::vector` --> `list`, `std::map` --> `dict`, `std::tuple` --> `tuple`.
-2. This requires `#include "pybind11/std.h"`. 
+2. This requires `#include "pybind11/stl.h"`. 
 3. The cast produces a Python object. One can then call the objec'ts Python method (such as `__str__` or `__len__`) by obtaining the method via `.attr(method_name)`, followed by the function-call syntax, `method_object(arguments)`.
-3. While calling a Python function (or method), parameters of basic types may not need an explicit `cast`, like `3` in the call to `__index__`. The context is clear enough so that the system may be conducting a cast implicitly.
-4. Calls to Python methods and functions produce Python objects.  Use `python_object.cast<cpp_type>()` to cast a Python object to a C++ object.
+3. While calling a Python function or method, parameters of basic types may not need an explicit `cast`, like `3` in the call to `__index__`. The context is clear enough so that the system conducts a cast implicitly.
+4. With `stl.h` `#include`d, passing a STL container to a Python function does not need an explicit `py::cast(x)`. Casting is done implicitly.
+5. Calls to Python methods and functions return Python objects.  Use `python_object.cast<cpp_type>()` to cast a Python object to a C++ object.
+
 
 
 # Scenario 2:
+
+I verified that with `#include "pybind11/stl.h"`, passing is by value, as demonstrated below.
 
 Code:
 
@@ -254,6 +257,12 @@ before `mapadd`, in Python --- <class 'dict'>: {'first': 1.1, 'second': 2.2, 'th
 after `mappad`, in Python --- <class 'dict'>: {'first': 2.1, 'second': 3.2, 'third': 4.3, 'total': 6.6}
 after `mapadd`, in C++: {first:1.1, second:2.2, third:3.3}
 ```
+
+Observations:
+
+1. The passing is by value. While the Python function modifies the object that is passed in, the original object in C++ remains unchanged.
+2. The input argument on the Python side is "native" types like `list` and `dict`. This nativeness is only possible with value copying.
+
 
 
 # "Opaque" object binding
