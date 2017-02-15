@@ -3,19 +3,21 @@ layout: post
 title: Embedding Python in C++, Part 1
 ---
 
-Python has very good inter-operability with C and C++. (In this post I'll just say C++ for simplicity.) There are two situations to this "inter-op". The first is that the main program is in Python; certain performance critical parts are coded in C++, or provided by an existing C++ library, which is called from the main Python program. This is known as "extending Python with C++".
+Python has very good inter-operability with C and C++. (In this post I'll just say C++ for simplicity.) There are two sides to this "inter-op". The first is that the main program is in Python; certain performance critical parts are coded in C++, or provided by an existing C++ library, which is called from the main Python program. This is known as "extending Python with C++".
 
-The second situation is that the main program is in C++, and it calls some Python code. This is known as "embedding Python in C++".
+The other side is that the main program is in C++, and it calls some Python code. This is known as "embedding Python in C++".
 
-Both needs arise, but the first ("extension") is by far more common. We can find much more online resources about "extension" than about "embedding". However, the two uses share a lot of the tooling. Recently I needed to do both "extension" and "embedding". I plan to first write about my "embedding" experience in a few posts.
+Both needs arise, but the first is by far more common. We can find much more online resources about "extending" than about "embedding". However, the two uses share a lot of common machinery. There are several tools in this area. As far as I saw, their documentation and other resources all prodominantly talk about "extending". However, most of them either already support "embedding", or could do so with modest additional work.
+
+Recently I needed to do both "extending" and "embedding". I plan to first write about my "embedding" experience in a few articles.
 
 
 Description of the problem
 ==========================
 
-My main program is a realtime, low-latency, high-throughput, online sevice in C++. In a critical component, it runs some sophisticated modeling or "machine learning" algorithm to make a decision. I dediced to develop the modeling algorithm in Python in order to tap into its excellent data stack and modeling ecosystem. As a result, I needed to build an interface between the Python and C++ codes. To fix ideas, the Python code is listed below.
+My main program is a realtime, low-latency, high-throughput, online sevice in C++. In a critical component, it runs some sophisticated modeling or "machine learning" algorithm to make a decision. I decided to develop the model algorithm in Python in order to tap into its excellent data stack and modeling ecosystem. As a result, I needed to build an interface between the Python and C++ codes. To fix ideas, the Python code is listed below.
 
-The meat of the computation is carried out by class `Engine`:
+The meat of the computation is carried out by the class `Engine`:
 
 ```
 """
@@ -53,7 +55,7 @@ class Engine:
             return -1, traceback.format_exc()
 ```
 
-Class `Driver` provides C++-facing API. It handles task reception, result provision, and management of a process pool; each process runs a `Engine` instance:
+The class `Driver` provides C++-facing API. It handles receiving task submissions, providing results to queries, and managing a process pool, in which each process runs a `Engine` instance:
 
 ```
 """ 
@@ -82,10 +84,9 @@ class Driver:
         self._tasks = {}
         self._max_tasks = max_tasks
         self._pool = None
-        if n_subprocesses < 0:
+        if n_subprocesses <= 0:
             n_subprocesses = multiprocessing.cpu_count()
         self._n_subproceses = n_subprocesses
-        self._engine = None   # provide a sequential option for testing
 
     def initialize(self, *, config_json, float_feature_names, str_feature_names, **kwargs):
         self._config_json = json.loads(config_json)
@@ -100,13 +101,11 @@ class Driver:
 
         return self
 
-
     def submit(self, *, float_features, str_features, int_feature):
         """
         Returns:
             tuple (flag, key, message)
         """
-        assert self._n_subproceses > 0
         assert len(self._float_feature_names) == len(float_features)
         assert len(self._str_feature_names) == len(str_features)
         try:
@@ -121,10 +120,6 @@ class Driver:
             )
             key = id(result)
             self._tasks[key] = result
-            # A valid positive `key` occurs along with a flag of `0`.
-            # key will have no collision because any key (i.e. memory address)
-            # could be used again only after that result has been removed
-            # from `_tasks`.
 
             return 0, key, ''
         except Exception as e:
@@ -139,7 +134,6 @@ class Driver:
             tuple (flag, value, message).
                 Usually `flag == 0` combined with `value > 0` is a sure sign of success.
         """
-        assert self._n_subproceses > 0
         try:
             result = self._tasks[key]
             if not result.ready():
@@ -156,162 +150,36 @@ class Driver:
 
     def finalize(self):
         pass
-
 ```
 
 A few points of note:
 
 1. Because this code is totally CPU-bound, I use multiple processes to increase throughput and to serve the multiple threads of the C++ program.
-2. I use a "submit/retrieve" style to handle task requests initiated from any C++ thread: the thread "submits" a modeling task to the `Driver`, and later come back to query the result. If submission is not accepted or result is not ready, it waits a little bit and tries again.
-3. `Driver` launches a "process pool". The pool accepts task submissions and returns `AsyncResult` objects.
-4. We use the `id` (i.e. memory address) of the `AsyncResult` as a receipt for the submitter (a C++ thread),
-which later provides the `id` in calls to `retrieve` to identify the task whose result is being requested.
-5. In methods `submit` and `retrieve`, we wrap all code in `try/except` statements to capture any exception, so that to the consumer (C++ threads), the Python code never raises exceptions. The returned value contains exit code and error messages, if any, in addition to true values of interest.
-6. In this example code, I intentionally used a variety of data types (string, string list, numerical list, numerical scalar, etc) in order to test the embedding tools in later steps.
+1. At design stage there was a choice to be made between using `multiprocessing` and `concurrent.futures`. One reason for using `multiprocessing` is that it allows custom initialization of the child processes, while `concurrent.futures` does not (yet) support this directly.
+1. I use a "submit/retrieve" style to handle task requests initiated from any C++ thread: the thread "submits" a modeling task to the `Driver`, and later comes back to query the result. If submission is not accepted or result is not ready, it waits a little bit and tries again.
+1. `Driver` launches a "process pool". The pool accepts task submissions and returns `AsyncResult` objects.
+1. I use the `id` (i.e. memory address) of the `AsyncResult` as a receipt for the submitter (a C++ thread), which later provides the `id` in calls to `retrieve` to identify the task whose result is being requested. The keys will have no collision because any key could be used again only after that result has been removed from `_tasks`.
+1. In the methods `submit` and `retrieve`, I wrap all code in `try/except` statements to capture any exception, so that to the consumer (C++ threads), the Python code never raises exceptions. The returned value contains exit code and error messages, if any, in addition to the true values of interest.
+1. In this example code, I intentionally used a variety of data types (string, string list, numerical list, numerical scalar, etc) in order to test functionalities of the embedding tools.
+
 
 
 Test it in Python
 =================
 
-I wrote a Python program to verify it works.
+I wrote a Python program to verify that it works. The test code primarily does the following things:
+
+1. Make up some testing data.
+1. Create a number of threads, each processing a subset of the testing data.
+1. Each thread loops through its data points. In each iteration, it submits the data to `Driver`, then queries about the result. Once the result is ready, it retrieves the result and moves to the next data point. When the result is not ready, it `sleep`s, allowing other threads to execute.
+
+The test code is available at [https://github.com/zpz/python/tree/master/py4cc1](https://github.com/zpz/python/tree/master/py4cc1). The test program ran with no issues.
 
 
-```
-"""
-File `test.py`.
-"""
+First attempt at using raw Python/C API
+=======================================
 
-import threading
-import time
-
-from faker import Faker
-import numpy as np
-
-from py4cc1.py4cc import Driver, big_model
-
-
-rnd_seed = 3333
-
-config_json = '{"model_name": "time killer"}'
-float_feature_names = ['value_1', 'value_2']
-str_feature_names = ['name', 'sentence', 'id']
-
-
-def makedata(N):
-    fake = Faker()
-    fake.seed(rnd_seed)
-
-    data = [None] * N
-    for idx in range(N):
-        data[idx] = {
-            'float_features': [fake.pyfloat(), fake.pyfloat()],
-            'str_features': [fake.name(), fake.sentence(), fake.uuid4()],
-            'int_feature': fake.pyint()
-        }
-
-    answers = np.array([big_model(**z) for z in data], int)
-    # Correct result for verification.
-
-    return data, answers
-
-
-def make_driver(n_subprocesses=-1):
-    driver = Driver(n_subprocesses=n_subprocesses)
-    driver.initialize(config_json=config_json,
-                      float_feature_names=float_feature_names,
-                      str_feature_names=str_feature_names)
-    return driver
-
-
-def do_one_thread(driver, data, results, idx_from, idx_to):
-    for idx in range(idx_from, idx_to):
-        while True:
-            flag, key, msg = driver.submit(**data[idx])
-            if flag == 0:
-                assert key > 0
-                break
-            elif flag == 1:
-                time.sleep(0.001)
-            else:
-                raise Exception(msg)
-
-        time.sleep(0.001)
-
-        while True:
-            flag, val, msg = driver.retrieve(key)
-            if flag == 0:
-                results[idx] = val
-                break
-            elif flag == 1:
-                time.sleep(0.001)
-            else:
-                raise Exception(msg)
-
-
-def do_threads(data):
-    driver = make_driver()
-
-    N = len(data)
-    results = np.zeros(N, int)
-
-    n_threads = 16
-    idx_from = [0] * n_threads
-    idx_to = [N] * n_threads
-    for i in range(n_threads - 1):
-        last_to = N * (i+1) // n_threads
-        idx_to[i] = last_to
-        idx_from[i+1] = last_to
-
-    threads = [
-        threading.Thread(target=do_one_thread,
-                         args=[driver, data, results, idx_from[i], idx_to[i]])
-        for i in range(n_threads)
-        ]
-
-    time0 = time.perf_counter()
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
-    time1 = time.perf_counter()
-
-    driver.finalize()
-    
-    print('total time:', time1 - time0, 'seconds')
-    print('processed', int(N / (time1 - time0)), 'cases per second')
-
-    return results
-
-
-def main():
-    N = 1000
-    data, answers = makedata(N)
-
-    results_th = do_threads(data)
-    assert all(results_th == answers)
-
-
-if __name__ == '__main__':
-    main()
-
-```
-
-Run it:
-
-```
-$ python test.py 
-total time: 1.298026571000264 seconds
-processed 770 cases per second
-```
-
-No issues.
-
-
-First attempt using raw Python/C API
-====================================
-
-
-Now it's time to familiarize myself with the  Python/C API. The official documentation has a [tutorial](https://docs.python.org/3/extending/index.html) as well as a [reference manual](https://docs.python.org/3/c-api/index.html).
+A natural approach uses Python's C API. The official documentation has a [tutorial](https://docs.python.org/3/extending/index.html) as well as a [reference manual](https://docs.python.org/3/c-api/index.html).
 
 To use the API, one must first `include` `Python.h`, which on my Linux box is located in `/usr/local/include/python3.6m`.
 
