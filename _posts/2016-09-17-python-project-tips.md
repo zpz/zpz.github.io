@@ -13,39 +13,46 @@ title: Some Coding Tips for Python Projects
 ## Recommended directory structure for a Python project
 <a name="directory-structure"></a>
 
+Suppose the the probject is called 'becool'. The main content of the work is a package called 'becool', and there are some peripheral things supporting it. The recommended directory structure looks like this:
+
 ```
-project/
+becool/
   |-- archive/
   |-- config/
   |-- doc/
-  |-- package_a/
+  |-- becool/
   |   |-- __init__.py
   |   |-- module_a.py
   |   |-- module_b.py
-  |   |-- tests/
-  |   |   |-- __init__.py
-  |   |   |-- test_module_a.py
-  |   |   |-- test_module_b.py
-  |   |-- subpackage_a/
+  |   |-- becooler/
   |   |   |-- __init__.py
   |   |   |-- module_c.py
   |   |   |-- module_d.py
-  |   |   |-- tests/
-  |   |   |   |-- __init__.py
-  |   |   |   |-- test_module_c.py
-  |   |   |   |-- test_module_d.py
+  |-- tests/
+  |   |-- __init__.py
+  |   |-- test_module_a.py
+  |   |-- test_module_b.py
+  |   |-- becooler/
+  |   |   |-- __init__.py
+  |   |   |-- test_module_c.py
+  |   |   |-- test_module_d.py
   |-- scripts/
   |-- README.md
 ```
 
-Here 'project' is synonym to a git repo.
+The project name, 'becool', is also used as the name of a git repo.
 
 - Maintain a clean project file structure, and do not be afraid to adjust or refactor. [Some reference](http://as.ynchrono.us/2007/12/filesystem-structure-of-python-project_21.html); [some more](http://stackoverflow.com/questions/193161/what-is-the-best-project-structure-for-a-python-application).
-- A typical situation is that a Python project contains a single Python package, with the same name as the project. Although nothing forbids you from having multiple packages in one project (i.e. having a `package_b` parallel to `package_a`), it's an architecture smell. The reason is that if `package_a` and `package_b` closely interact, then maybe they should be one package. If they do not closely interact, then they are independently deployable, therefore it's better to have them in separate projects (i.e. repos).
-- Every non-testing package (that is, a directory with an `__init__.py`) should contain a sub-directory named `test` or `tests`. The test directory should be a *package* (i.e. containing an `__init__.py`), hence relative imports can be used in the testing code.
-- The directory `scripts` should not contain `__init__.py`, but can contain files named like `*_test.py` or `test_*.py`.
+- A typical situation is that a Python project contains a single Python package, with the same name as the project. Although nothing forbids you from having multiple packages in one project (i.e. having a `behot` parallel to `becool`), it's usually a bad idea. The reason is that if `becool` and `behot` closely interact, then maybe they should be one single package. On the other hand, if they do not closely interact, then they are independently deployable, therefore it's better to have them in separate projects (i.e. repos).
+- The directory `scripts` should not contain `__init__.py`, but may contain files named like `*_test.py` or `test_*.py` for testing functions in the scripts.
 - Ideally, content of `scripts` is mainly short launchers of functions in packages.
-- `archive` is for any code segments that you have deleted from the "main line" but for some reason still want to keep a visible copy for reference.
+- `archive` is for any code segments that you have deleted from the "main line" but for some reason still want to keep a visible copy for reference. Do not use a "branch" for this purpose.
+
+### Where to put tests?
+
+There are mainly two approaches. The first is to have `tests` subdirectories within the package `becool`. Specifically, every directory (include the top level `becool`) contains a subdirectory named `tests`, which hosts tests for the modules (i.e. `*.py` files) in its parent directory. The second approach uses a `tests` directory separate from the package being tests. This is the approach shown in the digram above. Both approaches are used by major open source projects.
+
+After some time using the first approach, I switched to the second. The switch is prompted by some confusing situation related to running tests against the package that has been "installed" into the system `site-packages`. I can think of two other reasons. First, conceptually, "tests" are not the package's intrinsic functionalities. They are supporting the development of the package, just like "doc" is another supporting component. Second, in substantial projects, one may build some utilities to be used by the test code. In the first approach, the location of this testing infrastructure may become awkward.
 
 
 ## Documentation
