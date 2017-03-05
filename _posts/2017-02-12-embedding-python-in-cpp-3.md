@@ -11,10 +11,10 @@ There are two headers relavent to this topic: `pybind11/stl.h` and `pybind11/stl
 
 # Python testing code
 
-The Python code below operations on the objects that are passed in from C++. However, this is pure Python code unaware that it is going to be called from C++. This module resides in package `py4cc2`. The package is found on `PYTHONPATH` and is located independently of the C++ code that would call it.
+The Python code below operations on the objects that are passed in from C++. However, this is pure Python code unaware that it is going to be called from C++. This module resides in package `py4cc`. The package is found on `PYTHONPATH` and is located independently of the C++ code that would call it.
 
 ```
-# File `stl.py` in package `py4cc2`.
+# File `stl.py` in package `py4cc`.
 
 def show(x, pp=True):
     s = 'in Python --- ' + str(type(x)) + ': ' + str(x)
@@ -58,6 +58,8 @@ Note that `stl.h` is `#include`d. Also not that at one point the Python module l
 Code:
 
 ```
+// File `test_cast.cc` in `cc11bind`.
+
 #include "Python.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h" 
@@ -183,6 +185,8 @@ I verified that with `#include "pybind11/stl.h"`, passing is by value, as demons
 Code:
 
 ```
+// File `test_copy.cc` in `cc11bind`.
+
 #include "Python.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
@@ -272,7 +276,7 @@ In order to pass a C++ STL container to Python "by reference", one needs to "bin
 `pybind11` provides these binding classes. One needs to expose these classes to Python in a Python module that is written in C++. The following is my module for this purpose. The file is located in the package `py4cc2`. Compile this file to create a shared library in the package folder, and `import` it in Python or C++.
 
 ```
-// File `_cc11binds.cc` in package `py4cc2`.
+// File `_cc11binds.cc` in package `py4cc`.
 
 // Compile:
 // c++ -O3 -shared -std=c++11 -fPIC -I /usr/local/include/python3.6m \
@@ -306,6 +310,8 @@ The code below demonstrates various combinations of `#include "pybind11/stl.h"` 
 Code:
 
 ```
+// File `test_ref` in `cc11bind`.
+
 #include "Python.h"
 #include "pybind11/pybind11.h"
 
@@ -496,6 +502,8 @@ Observations regarding C++ const correctness:
 Code:
 
 ```
+// File `test_kwargs.cc` in `cc11bind`.
+
 #include "Python.h"
 #include "pybind11/pybind11.h"
 
@@ -620,7 +628,15 @@ Observations (some code and output are not shown):
    ```
    
    This works, and passes by reference. Previously I have demonstrated that pass-by-reference works in direct positional arguments.
-   
-3. I guess the problem has to do with the memory management in `py::arg("x") = &x`. 
 
-The complete code is available at [https://github.com/zpz/python/tree/master/py4cc2](https://github.com/zpz/python/tree/master/py4cc2/) and [https://github.com/zpz/python/tree/master/cc4py2-a](https://github.com/zpz/python/tree/master/cc4py2-a/).
+Digging deeper, the two failing scenarios, namely `py::dict(py::arg("x") = &x)`  and `f(py::arg("x") = &x)` can be explained. My understanding is that the two are the same issue, and what's going on is as follows:
+
+1. The construct `py::arg("x") = &x)` pulls `x` into an Python object. In the first scenario it's the Python `dict` being defined, whereas in the second it's a temporary object in the function call.
+2. When this Python object goes out of scope (which happens in the C++ code), in the eyes of Python the reference count of `x` reduces to 0, hence Python frees `x`. The reference count reduction is performed in the destructor of the C++ object that is defined by `pybind11` for `py::arg("x") = &x`.
+3. However, when `x` goes out of scope in the C++ code, C++ frees its memory as well. I do not know which of Python and C++ frees it first, but double free of this one object crashes the program.
+
+The solution is to tell `pybind11` "I am giving you a *reference*; the object's life-time is managed in C++; do not decrease its refernce count in Python, instead make sure it is just a pass-through in Python". The code in both scenarios is to replace `&x` by `py::cast(&x, py::return_value_policy::reference)`.
+
+`pybind11` provides methods `ref_count`, `inc_ref`, and `dec_ref` for every `py::object` instance. If you are in the mode of digging, these methods can show you the dynamics.
+
+The complete code is available at [https://github.com/zpz/python/tree/master/py4cc](https://github.com/zpz/python/tree/master/py4cc/) and [https://github.com/zpz/python/tree/master/cc11bind](https://github.com/zpz/python/tree/master/cc11bind/).

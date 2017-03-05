@@ -21,7 +21,7 @@ The meat of the computation is carried out by the class `Engine`:
 
 ```
 """
-Module `py4cc.py` in package `py4cc1`.
+Module `py4cc_1.py` in package `py4cc`.
 """
 
 import copy
@@ -59,7 +59,7 @@ The class `Driver` provides C++-facing API. It handles receiving task submission
 
 ```
 """ 
-Module `py4cc.py` in package `py4cc1` (continued).
+Module `py4cc_1.py` in package `py4cc1` (continued).
 """
 
 # Global variable in its process.
@@ -173,7 +173,7 @@ I wrote a Python program to verify that it works. The test code primarily does t
 1. Create a number of threads, each processing a subset of the testing data.
 1. Each thread loops through its data points. In each iteration, it submits the data to `Driver`, then queries about the result. Once the result is ready, it retrieves the result and moves to the next data point. When the result is not ready, it `sleep`s, allowing other threads to execute.
 
-The test code is available at [https://github.com/zpz/python/tree/master/py4cc1](https://github.com/zpz/python/tree/master/py4cc1). The test program ran with no issues.
+The test code is available at [https://github.com/zpz/python/tree/master/py4cc/tests](https://github.com/zpz/python/tree/master/py4cc/tests). The test program ran with no issues.
 
 
 First attempt at using raw Python/C API
@@ -225,7 +225,7 @@ As one can see, the API functions are kind of straightfoward. But boy, is that t
 My C++ header file that corresponds to the Python API is listed below.
 
 ```
-// File `cc4py.h`.
+// File `cc4py_1.h` in `cc4py`.
 
 #ifndef CC4PY_H_
 #define CC4PY_H_
@@ -307,10 +307,10 @@ namespace cc4py {
 #endif  // CC4PY_H_
 ```
 
-A good part of the corresponding source file is listed below. The complete code is available at [https://github.com/zpz/python/tree/master/cc4py1-a/](https://github.com/zpz/python/tree/master/cc4py1-a). You can get a feel of the tedious yet predictable style of this approach from this code sample.
+A good part of the corresponding source file is listed below. The complete code is available at [https://github.com/zpz/python/tree/master/cc4py/cc4py_1.cc](https://github.com/zpz/python/tree/master/cc4py/cc4py_1.cc). You can get a feel of the tedious yet predictable style of this approach from this code sample.
 
 ```
-// File `cc4py.cc`.
+// File `cc4py_1.cc` in `cc4py`.
 
 #include "cc4py.h"
 #include "Python.h"
@@ -442,7 +442,7 @@ Testing it in C++
 The test program for the C++ implementation is analogous to the Python test. An important difference is that the C++ threads need to lock up the code blocks that call `Driver` methods because, unlike Python, C++ threads do execute simultanously on a multi-core machine. If multiple threads access the single Python interpreter at the same time, the program will crash.
 
 The source code is available at
-[https://github.com/zpz/python/tree/master/cc4py1-a/](https://github.com/zpz/python/tree/master/cc4py1-a).
+[https://github.com/zpz/python/tree/master/cc4py/test_1.cc](https://github.com/zpz/python/tree/master/cc4py/test_1.cc).
 
 
 Looking back and forth

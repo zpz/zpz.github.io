@@ -93,7 +93,7 @@ TaskResult Driver::retrieve(const long key)
 
 Here we see tuple items are accessed in the natural way (`z[0]`) instead of `PyTuple_GetItem(z, 0)`, and Python-to-C++ conversion uses the pattern `py_object.cast<target_type>()`.
 
-The complete code is available at [https://github.com/zpz/python/tree/master/cc4py1-b/](https://github.com/zpz/python/tree/master/cc4py1-b). Please feel the contrast yourself with the older version at [https://github.com/zpz/python/tree/master/cc4py1-a/](https://github.com/zpz/python/tree/master/cc4py1-a).
+The complete code is available at [https://github.com/zpz/python/tree/master/cc4py/cc4py_2.cc](https://github.com/zpz/python/tree/master/cc4py/cc4py_2.cc). Please feel the contrast yourself with the older version at [https://github.com/zpz/python/tree/master/cc4py/cc4py_1.cc](https://github.com/zpz/python/tree/master/cc4py/cc4py_1.cc).
 
 In the next post I will explore various ways of passing C++ STL containers to Python.
 
