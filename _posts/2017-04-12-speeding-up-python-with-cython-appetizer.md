@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Speeding up Python with Cython: an Appetizer
+title: "Speeding up Python with Cython: an Appetizer"
 ---
 
 When evaluating Python for enterprise projects, the concern over its ultimate speed arises from time to time. Of course, fundamental speed-up comes only from a better algorithm or better approach to the problem at hand. However, on the programming language level, Python is indeed lacking in ultimate speed due to many, many hoops in service of its nature as a very high-level and dynamic language.
@@ -85,39 +85,39 @@ Make it faster
 ```
 # file 'version02.py'.
 
-from datetime import datetime                                                                           
+from datetime import datetime
 import pytz
 
 
 class TimestampShifter:
     DAY_SECONDS = 86400
     WEEK_SECONDS = 604800
-    
+
     def __init__(self):
         basedate = datetime.now(pytz.timezone('utc'))
         self._weekday = basedate.isoweekday()  # Monday is 1, Sunday is 7
         dt = basedate.replace(hour=0, minute=0, second=0, microsecond=0)
         self._timestamp = int(dt.timestamp())
-        
+
     def shift_to(self, ts):
         ts_delta = ts - self._timestamp
         if ts_delta < 0:
             ts_delta += ((-ts_delta) // self.WEEK_SECONDS + 1) * self.WEEK_SECONDS
-            
+
         td = ts_delta % self.WEEK_SECONDS
         nday = td // self.DAY_SECONDS
         weekday = self._weekday + int(nday)
         if weekday > 7:
             weekday = weekday - 7
         return weekday
-        
-        
+
+
 def weekday(ts):
     shifter = TimestampShifter()
     z = shifter.shift_to(ts)
     return z
-    
-    
+
+
 def weekdays(ts):
     shifter = TimestampShifter()
     return [shifter.shift_to(t) for t in ts]
@@ -126,7 +126,7 @@ def weekdays(ts):
 Time it:
 
 ```
-$ python test2.py 
+$ python test2.py
 
 Function ` do_them ` took  0.9040505230077542 seconds to finish
 ```
@@ -153,7 +153,7 @@ In `version02`, we create the reference time by querying the current time at obj
 ```
 # file 'version03.py'.
 
-def weekday(ts):                                                                                        
+def weekday(ts):
     ts0 = 1489363200   # 2017-03-13 0:0:0 UTC, Monday
     weekday0 = 1   # ISO weekday: Monday is 1, Sunday is 7
 
@@ -183,10 +183,10 @@ $ python test3.py
 
 Function ` do_them ` took  0.5782521039946005 seconds to finish
 ```
- 
+
 A speed-up from 0.88 to 0.58 seconds. Modest but real.
 
- 
+
 And faster
 ==========
 
@@ -246,18 +246,18 @@ Variable types are declared via the `cdef` keyword. Argument types are declared 
 
 def weekday(long ts):
     cdef long ts0, weekday0, DAY_SECONDS, WEEK_SECONDS
-    cdef long ts_delta, td, nday, weekday                                                               
-    
+    cdef long ts_delta, td, nday, weekday
+
     ts0 = 1489363200   # 2017-03-13 0:0:0 UTC, Monday
     weekday0 = 1   # ISO weekday: Monday is 1, Sunday is 7
-    
+
     DAY_SECONDS = 86400
     WEEK_SECONDS = 604800
-    
+
     ts_delta = ts - ts0
     if ts_delta < 0:
         ts_delta += ((-ts_delta) // WEEK_SECONDS + 1) * WEEK_SECONDS
-    
+
     td = ts_delta % WEEK_SECONDS
     nday = td // DAY_SECONDS
     weekday = weekday0 + nday
@@ -285,7 +285,7 @@ Execution time was reduced from 0.30 to 0.036 seconds. Nice.
 And faster
 ==========
 
-If a functin's return value is a simple C type, it can be beneficial to declare that as well.
+If a function's return value is a simple C type, it can be beneficial to declare that as well.
 
 ```
 # file 'version06.pyx'.
@@ -321,12 +321,12 @@ cimport numpy as np
 
 
 cdef long weekday(long ts):
-	# ... identical to file 'version06.pyx'
-	# ... 
+    # ... identical to file 'version06.pyx'
+    # ... 
 
 
 def weekdays(np.ndarray[np.int64_t, ndim=1] ts):
-    return [weekday(t) for t in ts]  
+    return [weekday(t) for t in ts]
 ```
 
 Compile it as before. The testing code becomes the following.
@@ -347,7 +347,7 @@ import pycc.version07 as mymod
 def do_them(timestamps):
     fn = mymod.weekdays
     return fn(timestamps)
-                                                                                                               
+
 
 if __name__ == "__main__":
     n = 1000000
@@ -375,12 +375,12 @@ Well, it's known that accessing individual elements of a Numpy array is *ineffic
 ```
 # file 'version08.pyx'.
 
-import numpy as np                                                                                             
+import numpy as np
 cimport numpy as np
 
 
 cdef long weekday(long ts):
-	 # ... identical to 'version06.pyx'
+    # ... identical to 'version06.pyx'
 
 
 def weekdays(long[:] ts):
@@ -395,7 +395,7 @@ def weekdays(long[:] ts):
     return out
 ```
 
-Accordingly in the testing script, the line 
+Accordingly in the testing script, the line
 
 ```
 z = do_them(timestamps)
@@ -412,7 +412,7 @@ Compile as usual. Then time it:
 
 ```
 docker-user@pycctalk in ~/work/src/pycctalk
-$ python test8.py 
+$ python test8.py
 
 Function ` do_them ` took  0.011735767999198288 seconds to finish
 ```
@@ -432,7 +432,7 @@ The yellow-highlighted lines indicate Python, as opposed to C, operations. These
 ![cython_html_yellow_expanded](../images/cython_html_yellow_expanded.png)
 
 In function `weekday`, we realize that the integer division and remainder functions `//` and `%` are Python functions. However, since the operands are all integers, we might use C functions of these operations for hopeful speed gain. This effect is achieved by the Cython decorator `cdivision`.
- 
+
 ```
 # file 'version09.pyx'
 
@@ -443,13 +443,13 @@ cimport cython
 
 @cython.cdivision(True)
 cdef long weekday(long ts):
-	 # ... identical to 'version08.pyx'
-	 # ...
+    # ... identical to 'version08.pyx'
+    # ...
 
 
 def weekdays(long[:] ts):
-	 # ... identical to 'version08.pyx'
-	 # ...
+    # ... identical to 'version08.pyx'
+    # ...
 ```
 
 Let's see the generated HTML file:
@@ -480,7 +480,7 @@ We have used `easycython` to compile the Cython source codes. This works fine fo
 ```
 # file 'setup.py'.
 
-debug = False                                                                                                  
+debug = False
 
 from setuptools import setup, Extension
 from Cython.Build import cythonize
@@ -536,21 +536,21 @@ Notice that `setup.py` contains a flag `debug = False`. If it is set to `True`, 
 ```
 # file 'version10.pyx'.
 
-import numpy as np                                                                                             
+import numpy as np
 cimport numpy as np
 cimport cython
 
 
 @cython.binding(True)
 cpdef long weekday(long ts):
-	 # ... identical to file 'version09.pyx'
-	 # ...
+    # ... identical to file 'version09.pyx'
+    # ...
 
 
 @cython.binding(True)
 def weekdays(long[:] ts):
-	 # ... identical to file 'version09.pyx'
-	 # ...
+    # ... identical to file 'version09.pyx'
+    # ...
 ```
 
 There are two changes in this code. First, the functions we intend to profile are decorated by `cython.binding(True)`. Second, function `weekday` is changed from `cdef` to `cpdef`. The second change is needed to make `weekday` visible to Python. With `cdef`, the function is visible in the Cython file only.
@@ -567,7 +567,7 @@ The testing script is changed to specify what functions to profile:
 ```
 # file 'test10.py'.
 
-import numpy as np                                                                                             
+import numpy as np
 
 from utilities.profiler import timed, lineprofiled
 
@@ -596,7 +596,7 @@ if __name__ == "__main__":
 Now that Cython is compiled and profiling is set up, let's see it at work:
 
 ```
-$ python test10.py 
+$ python test10.py
 Timer unit: 1e-06 s
 
 Total time: 38.9864 s
@@ -676,8 +676,4 @@ Let me stress that the first version of 3-line pure Python code is clean and cle
 Cython appears to be in good health: the project has been under consistently active development since 2007, and is being used by heavy-weight projects including `Numpy`, `pandas`, `scikit-learn`, `SciPy`, and `Appache Arrow`. 
 
 If nothing else, Cython has considerably boosted my confidence in starting a project in Python, knowing that there is a way to speed it up if that time comes, at all.
-
-
-
-
 
