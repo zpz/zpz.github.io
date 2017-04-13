@@ -377,7 +377,7 @@ cdef long weekday(long ts):
     # ...
 ```
 
-Note that replaced `def` by `cdef` in order to declare return type of the function.
+Note that we have replaced `def` by `cdef` in order to declare return type of the function.
 
 Now time it:
 
