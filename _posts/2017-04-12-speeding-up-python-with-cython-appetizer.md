@@ -36,24 +36,106 @@ def weekdays(ts):
     return [weekday(t) for t in ts] 
 ```
 
-We have created a Python package named `pycc` and made it visible on `PYTHONPATH`. The above is the module `version01` in this package.  This is our very baseline version.
+We have created a Python package named `pycc` and made it visible on `PYTHONPATH`. The above is the module `version01` in this package. We also created a utility module `profiler` in package `pycc` with the content as follows:
 
+```
+# profiler.py
+
+import time
+from functools import wraps
+
+import line_profiler
+
+
+def timed(func):
+    @wraps(func)
+    def profiled_func(*args, **kwargs):
+        time0 = time.perf_counter()
+        result = func(*args, **kwargs)
+        time1 = time.perf_counter()
+
+        print('')
+        print('Function `', func.__name__, '` took ', time1 - time0, 'seconds to finish')
+        print('')
+        return result
+
+    return profiled_func
+
+
+def lineprofiled(*funcs):
+    """
+    A line-profiling decorator.
+
+    Args:
+        funcs: functions (function objects, not function names) to be line-profiled.
+            If no function is specified, the function being decorated is profiled.
+
+    Example:
+
+            @lineprofiled()
+            def myfunc(a, b):
+                g(a)
+                f(b)
+
+            @lineprofiled(g, f)
+            def yourfunc(a, b):
+                x = g(a)
+                y = f(b)
+                s(x, y)
+    """
+    def mydecorator(func):
+        nonlocal funcs
+        if not funcs:
+            funcs = [func]
+        @wraps(func)
+        def profiled_func(*args, **kwargs):
+            func_names = [f.__name__ for f in funcs]
+            profile = line_profiler.LineProfiler(*funcs)
+            z = profile.runcall(func, *args, **kwargs)
+
+            profile.print_stats()
+            stats = profile.get_stats()
+            if not stats.timings:
+                warnings.warn("No profile stats.")
+                return z
+
+            for key, timings in stats.timings.items():
+                if key[-1] in func_names:
+                    if len(timings) > 0:
+                        func_names.remove(key[-1])
+                        if not func_names:
+                            break
+            if func_names:
+                # Force warnings.warn() to omit the source code line in the message
+                formatwarning_orig = warnings.formatwarning
+                warnings.formatwarning = lambda message, category, filename, lineno, line=None: \
+                    formatwarning_orig(message, category, filename, lineno, line='')
+                warnings.warn("No profile stats for %s." % str(func_names))
+                # Restore warning formatting.
+                warnings.formatwarning = formatwarning_orig
+
+            return z
+
+        return profiled_func
+
+    return mydecorator
+```
+
+`version01` is our very baseline version.
 The function `weekdays` is our "entry point" for testing. The testing code is as follows.
 
 
 ```
 # test1.py
 
-from utilities.profiler import timed
-
 from pycc import version01 as mymod
+from pycc.profiler import timed
 
 
 @timed
 def do_them(timestamps):
     fn = mymod.weekdays
     return fn(timestamps)
-
 
 
 if __name__ == "__main__":
@@ -63,7 +145,7 @@ if __name__ == "__main__":
     z = do_them(timestamps)  
 ```
 
-The decorator `timed` prints the execution time of the function that is decorated by it. The source code is [here](https://github.com/zpz/python/blob/master/utilities/profiler.py).
+The decorator `timed` prints the execution time of the function that is decorated by it.
 
 Running it, we get the execution time of `version01`:
 
@@ -337,9 +419,8 @@ Compile it as before. The testing code becomes the following.
 
 import numpy as np
 
-from utilities.profiler import timed
-
 from pycc.version01 import verify
+from pycc.profiler import timed
 import pycc.version07 as mymod
 
 
@@ -569,9 +650,8 @@ The testing script is changed to specify what functions to profile:
 
 import numpy as np
 
-from utilities.profiler import timed, lineprofiled
-
 from pycc.version01 import verify
+from pycc.profiler import lineprofiled
 import pycc.version10 as mymod
 
 
