@@ -7,9 +7,9 @@ In my search for an alternative to raw Python/C API for embedding Python in C++,
 
 1. It must have good support for C++ (i.e. not just C).
 2. It must provide good control and flexibility. This is a little vague, but what this means is that I like step-by-step programming with full understanding; I don't like tools that give me a black-box feel of magic.
-3. It must handle Python exceptions smoothly, meaning un-captured exceptions in my Python code should propogate into the C++ calling side as C++ exceptions. This way, I may choose to raise exceptions in Python instead of returning error codes.
+3. It must handle Python exceptions smoothly, meaning un-captured exceptions in my Python code should propagate into the C++ calling side as C++ exceptions. This way, I may choose to raise exceptions in Python instead of returning error codes.
 4. Big plus if it's possible to pass data from C++ to Python by reference. I did not have an immediate need to modify an object in Python and have the modification visible in C++, but I would like to be able to pass read-only data without copying.
-5. The tool should be an actively and seriously developped and maintained open source project with reasonable traction.
+5. The tool should be an actively and seriously developed and maintained open source project with reasonable traction.
 
 I found several tools that enjoyed decent attention, including
 
@@ -47,7 +47,7 @@ by
 py::object _engine;
 ```
 
-This is an important difference: with Python/C API, we work with bare C pointers; with pybind11, we work with C++ objects that manages bare pointers for us behind the scene.
+This is an important difference: with Python/C API, we work with bare C pointers; with `pybind11`, we work with `C++` objects that manages bare pointers for us behind the scene.
 
 The source file is across-the-board cleaner and simpler than the previous version. Here is the method `initialize`:
 

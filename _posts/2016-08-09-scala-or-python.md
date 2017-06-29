@@ -3,8 +3,6 @@ layout: post
 title: Should we use Scala or Python?
 ---
 
-(This was a work email.)
-
 Data team,
  
 With the prospect of starting to use `Spark` seriously, people are saying “(it’s time to) learn `Scala`”. 
@@ -13,12 +11,14 @@ I’d like to share some thoughts here on this matter, trying to be brief.
  
 - Any one small project/team can not afford to have two primary languages.
   That situation is never needed, nor manageable. 
-  The difficulty is not to make most team members *understand* two languages. That’s nothing.
-  
+
+  The difficulty is not to make most team members *understand* two languages.
+  That’s not the difficult part.
   Besides code review, a team needs to refactor the high-level code organization, 
   introduce some common infrastructure, promote some good practice, 
   sit together to learn the tool, and so on. 
-  With two primary languages, I would not be able to do them all.
+  To do these things with two primary languages,
+  either everyone's work load is doubled, or the team is split in two.
 - Our task is to fight the problems, not the language (or the tool in general).
 - In terms of language or tool, our priority is not adopting “more powerful” (fancier) languages. 
   Our priority is to improve (or start) code sharing/reuse/modularization/testing/review, 
@@ -64,3 +64,6 @@ or whether `Scala` is worth learning. It’s about **ROI**.
 If you’re not already “pretty good” at `Python`, my opinion is to resist the distractions. 
 Learn the language. Learn a new library. Learn a new type of programming topic. 
 Using the tool you have invested in.
+
+(This was a note to my team.)
+

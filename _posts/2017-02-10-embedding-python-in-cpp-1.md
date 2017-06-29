@@ -3,11 +3,23 @@ layout: post
 title: Embedding Python in C++, Part 1
 ---
 
-Python has very good inter-operability with C and C++. (In this post I'll just say C++ for simplicity.) There are two sides to this "inter-op". The first is that the main program is in Python; certain performance critical parts are coded in C++, or provided by an existing C++ library, which is called from the main Python program. This is known as "extending Python with C++".
+Python has very good inter-operability with C and C++.
+(In this post I'll just say C++ for simplicity.)
+There are two sides to this "inter-op".
+The first is that the main program is in Python;
+certain performance critical parts are coded in C++, or provided by an existing C++ library,
+which is called from the main Python program.
+This is known as "extending Python with C++".
 
-The other side is that the main program is in C++, and it calls some Python code. This is known as "embedding Python in C++".
+The other side is that the main program is in C++, and it calls some Python code.
+This is known as "embedding Python in C++".
 
-Both needs arise, but the first is by far more common. We can find much more online resources about "extending" than about "embedding". However, the two uses share a lot of common machinery. There are several tools in this area. As far as I saw, their documentation and other resources all prodominantly talk about "extending". However, most of them either already support "embedding", or could do so with modest additional work.
+Both needs arise, but the first is by far more common.
+We can find much more online resources about "extending" than about "embedding".
+However, the two uses share a lot of common machinery.
+There are several tools in this area.
+As far as I saw, their documentation and other resources all predominantly talk about "extending".
+However, most of them either already support "embedding", or could do so with modest additional work.
 
 Recently I needed to do both "extending" and "embedding". I plan to first write about my "embedding" experience in a few articles.
 
@@ -204,7 +216,7 @@ does what the following accomplishes in Python:
 import py4cc1.py4cc
 ```
 
-Top-level functions, classess, and variables in this module are then accessed as attributes of the object `pModule`. For example, to instantiate a `Driver` object, we need to first get the `Driver` class object,
+Top-level functions, classes, and variables in this module are then accessed as attributes of the object `pModule`. For example, to instantiate a `Driver` object, we need to first get the `Driver` class object,
 
 ```
 PyObject * driver_cls = PyObject_GetAttrString(pModule, "Driver");
@@ -220,7 +232,7 @@ PyDict_SetItemString(kwargs, "max_tasks", PyLong_FromLong(64));
 PyObject * driver = PyObject_Call(driver_cls, noargs, kwargs);
 ```
     
-As one can see, the API functions are kind of straightfoward. But boy, is that tedious. I will not give more details since it's all in the documentation.
+As one can see, the API functions are kind of straightforward. But boy, is that tedious. I will not give more details since it's all in the documentation.
     
 My C++ header file that corresponds to the Python API is listed below.
 
@@ -452,7 +464,7 @@ Let me emphasize that **the C++ implementation listed above is not complete**; i
 
 A real issue is momery management. For example, my code did not take care of releasing memory that it allocated for strings. However, a much, much bigger burden is taking care of reference counts for Python, which I decided to forgo in the proof-of-concept code. 
 
-[The section entitled "Objects, Types and Reference Counts" in the offidical documentation](https://docs.python.org/3/c-api/intro.html) basically convinced me that I could hardly get it right, therefore the raw API is not the way to go. There has to be a better way, a way that works on a higher level, hence is cleaner and more concise, and that takes much low-level burden, especially memory management, off the shoulder of the user.
+[The section entitled "Objects, Types and Reference Counts" in the official documentation](https://docs.python.org/3/c-api/intro.html) basically convinced me that I could hardly get it right, therefore the raw API is not the way to go. There has to be a better way, a way that works on a higher level, hence is cleaner and more concise, and that takes much low-level burden, especially memory management, off the shoulder of the user.
 
 In the next post I will explore third-party tools, which necessarily are built on top of the raw API, that make my job much, much, and **so much** easier.
 

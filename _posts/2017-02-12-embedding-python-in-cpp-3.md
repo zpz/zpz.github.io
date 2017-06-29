@@ -5,7 +5,7 @@ title: Embedding Python in C++, Part 3
 
 In this post I will explore passing STL containers to Python in a variety of ways. The focus is to sort out how to pass containers by value and by reference. The `pybind11` documentation is not totally clear to me on this topic, therefore some of the findings below were obtained via trials.
 
-There are two headers relavent to this topic: `pybind11/stl.h` and `pybind11/stl_bind.h`. `stl.h` is responsible for converting a C++ STL container to a native Python object (such as `list` and `dict`) by copying, whereas `stl_bind.h` is responsible for passing a C++ STL container to Python in a custom class (not the native `list` and `dict`) that provides Pythonic behavior (such as `__getitm__` and `__setitem__`). This custom class "wraps" the C++ STL container and avoids data copying, hence enables "passing by reference" between C++ and Python.
+There are two headers relevant to this topic: `pybind11/stl.h` and `pybind11/stl_bind.h`. `stl.h` is responsible for converting a C++ STL container to a native Python object (such as `list` and `dict`) by copying, whereas `stl_bind.h` is responsible for passing a C++ STL container to Python in a custom class (not the native `list` and `dict`) that provides Pythonic behavior (such as `__getitm__` and `__setitem__`). This custom class "wraps" the C++ STL container and avoids data copying, hence enables "passing by reference" between C++ and Python.
 
 
 
@@ -171,7 +171,7 @@ Observations:
 
 1. `py::cast(x)` converts a C++ object to a Python object: `std::vector` --> `list`, `std::map` --> `dict`, `std::tuple` --> `tuple`.
 2. This requires `#include "pybind11/stl.h"`. 
-3. The cast produces a Python object. One can then call the objec'ts Python method (such as `__str__` or `__len__`) by obtaining the method via `.attr(method_name)`, followed by the function-call syntax, `method_object(arguments)`.
+3. The cast produces a Python object. One can then call the object's Python method (such as `__str__` or `__len__`) by obtaining the method via `.attr(method_name)`, followed by the function-call syntax, `method_object(arguments)`.
 3. While calling a Python function or method, parameters of basic types may not need an explicit `cast`, like `3` in the call to `__index__`. The context is clear enough so that the system conducts a cast implicitly.
 4. With `stl.h` `#include`d, passing a STL container to a Python function does not need an explicit `py::cast(x)`. Casting is done implicitly.
 5. Calls to Python methods and functions return Python objects.  Use `python_object.cast<cpp_type>()` to cast a Python object to a C++ object.
@@ -635,7 +635,7 @@ Digging deeper, the two failing scenarios, namely `py::dict(py::arg("x") = &x)` 
 2. When this Python object goes out of scope (which happens in the C++ code), in the eyes of Python the reference count of `x` reduces to 0, hence Python frees `x`. The reference count reduction is performed in the destructor of the C++ object that is defined by `pybind11` for `py::arg("x") = &x`.
 3. However, when `x` goes out of scope in the C++ code, C++ frees its memory as well. I do not know which of Python and C++ frees it first, but double free of this one object crashes the program.
 
-The solution is to tell `pybind11` "I am giving you a *reference*; the object's life-time is managed in C++; do not decrease its refernce count in Python, instead make sure it is just a pass-through in Python". The code in both scenarios is to replace `&x` by `py::cast(&x, py::return_value_policy::reference)`.
+The solution is to tell `pybind11` "I am giving you a *reference*; the object's life-time is managed in C++; do not decrease its reference count in Python, instead make sure it is just a pass-through in Python". The code in both scenarios is to replace `&x` by `py::cast(&x, py::return_value_policy::reference)`.
 
 `pybind11` provides methods `ref_count`, `inc_ref`, and `dec_ref` for every `py::object` instance. If you are in the mode of digging, these methods can show you the dynamics.
 

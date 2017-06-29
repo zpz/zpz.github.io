@@ -3,8 +3,6 @@ layout: post
 title: Why I Prefer Python to R for Data Work
 ---
 
-(This note was written in an attempt to dissuade my team from introducing R into the system.)
-
 I first encountered S-PLUS (a commercial distribution of S---R's parent) in 2000,
 and used it for statistics coursework for a few years.
 From 2004 through 2011, I used R daily and intensively for implementing my research
@@ -291,3 +289,6 @@ This is saying that **you want to minimize language diversity in your project**.
 Even in this case, I would definitely have careful team review and supervision.
 Introducing one more major language into a system is always a serious matter.
 I have not encountered a case where this is necessary.
+
+(This note was written in an attempt to dissuade my team from introducing R into the system.)
+
