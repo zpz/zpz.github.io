@@ -32,6 +32,8 @@ sudo ifconfig lo:0 10.254.254.254
 
 I don't know what's good about `10.254.254.254`; it comes from [this post](http://xplus3.net/2016/09/19/reaching-localhost-from-a-docker-container). Other addresses are also possible.
 
+These settings can not survive system reboot. I will update this post once I figure out
+how to persist them.
 
 Step 2
 ====
@@ -45,3 +47,4 @@ docker run --add-host=local_host:10.254.254.254 --add-host=local:10.254.254.254 
 Then, within container B, the host machine can be reached by connecting to `local_host`, `local`, or `10.254.254.254` directly.
 
 I also tried `--add-host=localhost:10.254.254.254`, and using `localhost` from within container B worked well. But there might be caveats, as `localhost` is, I guess, used by various programs in the system.
+
