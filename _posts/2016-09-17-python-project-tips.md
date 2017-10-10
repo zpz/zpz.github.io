@@ -101,6 +101,9 @@ Do write documentation to help **yourself**, if not others.
    * `sphinx.ext.viewcode`
 
    Also make sure `html_theme` is set to `nature` (unless you have another preference).
+   After that, search for `alabaster` in `conf.py`, and comment out that block,
+   because that block is needed for the default `alabaster` theme but could get in the way
+   of other thems.
 
 2. Create `*.rst` files as needed in `doc/source/`. These stand-alone doc files along with doc in source code will be used to generate documentation.
 
