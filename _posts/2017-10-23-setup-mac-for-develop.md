@@ -33,7 +33,7 @@ With a brand new Mac laptop, I usually do the following set-up in prep for progr
 
 7. Install `Docker`.
 
-   Go to [docker.io](docker.io) and follow instructions.
+   Go to [docker.io](https://www.docker.io) and follow instructions.
 
 8. Customize `bash` environment.
 
