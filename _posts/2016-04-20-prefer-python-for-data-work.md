@@ -174,6 +174,7 @@ In the `base` package we see functions like
 - `as.Date`
 - `AsIs`
 - `assign`
+- `c`
 - `Cstack_info`
 - `curlGetHeaders`
 - `dontCheck`
@@ -282,7 +283,7 @@ There are other efforts on improving R's speed. I mention this project only to s
 
 What if there is a specialized R package or function that is absolutely, exactly the right thing to use?
 
-Check out [rpy2](http://rpy2.bitbucket.org). Use it to call R from Python in a way such that your visible use of R is very localized, very isolated, very encapsulated, very controlled, very minimized. Do not let R spill into peripheral data processing, I/O,  source code structuring, and other functionalities that do not have to use R.
+Check out [rpy2](https://rpy2.bitbucket.io). Use it to call R from Python in a way such that your visible use of R is very localized, very isolated, very encapsulated, very controlled, very minimized. Do not let R spill into peripheral data processing, I/O,  source code structuring, and other functionalities that do not have to use R.
 This is not saying that R is very bad at the peripheral tasks.
 This is saying that **you want to minimize language diversity in your project**.
 

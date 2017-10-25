@@ -22,7 +22,7 @@ The subject of most of the descriptions below is one repository.
 
 ## Main points
 
-- **master** is for user.
+- **master** is for end user.
 - **develop** is for team.
 - **feature* is for a single developer.
 - **feature** makes Github 'pull requests' to **develop**.
