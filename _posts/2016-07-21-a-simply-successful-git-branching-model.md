@@ -24,7 +24,7 @@ The subject of most of the descriptions below is one repository.
 
 - **master** is for end user.
 - **develop** is for team.
-- **feature* is for a single developer.
+- **feature** is for a single developer.
 - **feature** makes Github 'pull requests' to **develop**.
 - pull requests are code reviewed and `git merge`d into **develop** (or rejected).
 - `git rebase` **feature** on top of **develop**
