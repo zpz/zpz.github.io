@@ -159,10 +159,14 @@ at exactly **one** place in a running program.
 
   ```python
   import logging
+  import os
   import time
 
-  def config_logger(level='info', use_utc=True, datefmt=None, format=None, **kwargs):
+  def config_logger(level=None, use_utc=True, datefmt=None, format=None, **kwargs):
     # 'level' is a string form of the logging levels: 'debug', 'info', 'warning', 'error', 'critical'.
+
+    if level is None:
+      level = os.environ.get('LOGLEVEL', 'info')
 
     if level not in [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]:
       level = getattr(logging, level.upper())
