@@ -10,7 +10,7 @@ should simply print logs to the standard output, and should not worry about
 what file to save the logs to, let alone file size capping and rotation, etc.
 Capture, storage, and consumption of the log are concerns of the execution environment.
 
-I've decided to use a program called [`multilog`](http://cr.yp.to/daemontools/multilog.html),
+After some research, I've decided to use a program called [`multilog`](http://cr.yp.to/daemontools/multilog.html),
 which is part of the [`deamontools`](http://cr.yp.to/daemontools.html) suit of utilities
 for UNIX services.
 
@@ -29,7 +29,7 @@ At most 10 (most recent) log files, including `current`, are kept in the directo
 and older ones are discarded; this is controlled by the argument `n10`.
 
 
-If we want to watch the terminal printout in addition to the file capture,
+If we want to observe the terminal printout in the meantime,
 we can do
 
 ```
@@ -46,7 +46,7 @@ Some useful resources:
 - [StackExchange Q/A](https://unix.stackexchange.com/questions/326127/how-do-i-append-prepend-a-timestamp-to-grep-output/326166#326166)
 - [logging](http://jdebp.eu/FGA/daemontools-family.html#Logging)
 
-Several alternative tools appear to be similar and equally adequate,
+Several alternatives appear to be similar and equally adequate,
 including
 
 - [`cyclog`](http://jdebp.eu/Softwares/nosh/guide/cyclog.html) in [`nosh`](http://jdebp.eu/Softwares/nosh/)
@@ -58,7 +58,8 @@ including
 I chose the `multilog` in `daemontools` because this is a package (called `daemontools`) that is
 `apt-get` installable on `debian`.
 
-If your program is in Python, I had some [tips on Python logging here](https://zpz.github.io/python-project-tips/#logging).
+If your program is in Python, I had some [tips on Python logging here](https://zpz.github.io/python-project-tips/#logging)
+that will work well with such `stdout` capturing.
 
 If you want to observe the terminal printout as well as capture it in files, you may be tempted to use
 
@@ -66,7 +67,7 @@ If you want to observe the terminal printout as well as capture it in files, you
 python myapp.py 2>&1 | tee >(multilog s1000000 n10 /path-to-log/myapp)
 ```
 
-However, you won't see printouts. Instead, you need to use
+To your surprise, you won't see printouts. Instead, you need to use
 
 ```
 python -u myapp.py 2>&1 | tee >(multilog s1000000 n10 /path-to-log/myapp)
