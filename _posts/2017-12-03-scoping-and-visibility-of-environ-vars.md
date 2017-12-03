@@ -4,12 +4,12 @@ title: "Scoping and Visibility of Environment Variables"
 ---
 
 
-I was considering using primarily environment variables to do some simply
+I was considering using environment variables to do some simple
 configuration management. To this end I experimented with ways to set environment variables
 and access them in a (Python) program.
 In the following I list some basic observations.
-(Some terminologies could be inaccurate.)
-I use the Bash shell.
+(Some terminologies may be inaccurate.)
+I use Bash shell.
 
 ## Subshell within a shell script
 
@@ -248,4 +248,13 @@ A:
 B: b
 ```
 
-The sitat
+## Simple configuration management based on environment variables
+
+Based on these observations, simple configurations can be managed this way:
+
+1. Define variables in a shell script, and store this config script outside of source control.
+   There is no need to `export` the variables.
+2. In a launch script (which should be source controlled), `source` the config script,
+   and then launch the main program.
+3. In the main program, query environment variables for configurations.
+
