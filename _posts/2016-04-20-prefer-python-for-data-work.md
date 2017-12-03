@@ -126,7 +126,8 @@ BTW the author is a professor, and a member of the Board.
 
 ### R is hard to learn
 
-Yes, you got started following one of the many tutorials. But I'm talking about a perspective I haven't seen mentioned.
+Yes, you got started following one of the many tutorials.
+But I'm talking about something else, a perspective I haven't seen mentioned.
 
 I don't think it would be controversial to say a nice language should have a small core, and an adequate (or extensive) standard library.
 With reasonable effort, you learn what the core has.
