@@ -30,10 +30,41 @@ If Linux, do this:
 sudo ifconfig lo:0 10.254.254.254
 ```
 
+After this, you can check the effect by
+
+```
+ifconfig lo:0
+```
+
+which will print
+
+```
+lo:0      Link encap:Local Loopback
+          inet addr:10.254.254.254  Mask:255.0.0.0
+          UP LOOPBACK RUNNING  MTU:65536  Metric:1
+```
+
+whereas before setting the alias, the printout would be
+
+```
+lo:0      Link encap:Local Loopback
+          UP LOOPBACK RUNNING  MTU:65536  Metric:1
+```
+
+(To remove the alias, do `sudo ifconfig lo:0 down`.)
+
 I don't know what's good about `10.254.254.254`; it comes from [this post](http://xplus3.net/2016/09/19/reaching-localhost-from-a-docker-container). Other addresses are also possible.
 
-These settings can not survive system reboot. I will update this post once I figure out
-how to persist them.
+You will want these settings to survive system reboot, i.e. want these settings to be run at system startup.
+To do that, put the following block (with blank lines before and after) in the file `/etc/network/interfaces`:
+
+```
+auto lo:0
+allow-hotplug lo:0
+iface lo:0 inet static
+    address 10.254.254.254
+    netmask 255.255.255.0
+```
 
 Step 2
 ====
