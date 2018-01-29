@@ -289,23 +289,23 @@ We see the solution is quite systematic and routine. The pattern is clear:
   1. Check for un-equality according to `typeid`, which determines the [**dynamic type**](https://stackoverflow.com/a/7649711/6178706]() of both the 'current' and the 'other' objects.
   2.  Check for un-equality according to data members, if any, introduced in the 'current' subclass (meaning the subclass in which the the implementation of `_equals` is in question).
   3. Call `_equals` of the parent class (unless the current class is the root class).
-  
-  Why does the solution take this route?
-  
-  First, I've used a `public`, non-`virtual` `operator==` to define the API, and delegated implementation details to a `protected` `virtual` function `_equals`. This follows [Herb Sutter's recommendations](http://www.gotw.ca/publications/mill18.htm).
-  
-  Second, the public API defines the comparison between any two objects in the class hierarchy, on both sides of the `==` sign.
-  
-  Third, why do we need to check `typeid`? Clearly, the `typeid`s of both objects must match in order for them to be equal. But can we omit this check and achieve the same effect? Suppose `this` is an object of class `C` and `other` is an object of class `D` (a subclass of `C`), then `C::_equals` is called.  When `other` is cast to an object of class `C`, any data members of `other` that are introduced in class `D` are lost. As long as the `C` and `A` parts of `other` match those of `this`, the function will return `true`.  This is of course the wrong answer, because the `D`-specific extra stuff in `other` do not participate in the comparison, as they should.
-  
-  On the other hand, suppose `this` is a `D` object and `other` is a `C` object, then `D::_equals` is called. If we omit the check on `typeid` and go ahead `cast` `other` to class `D` (of subclass of `C`), it will be a run-time (or compile-time?) error.
-  
-  Fourth, the rational for comparison based on data members of the `this` class is easy to understand. Actually, after the `typeid` check and `cast`, both `this` and `other` are of the same class, as they actually are but possibly disguised by the declared type of the references. Only when the object `other` is treated as exactly its dynamic type, not any base class (whereas `other` can't be of a subclass of the class of `this`, given that it has passed the `typeid` check), can we fully access all the data members defined in this class of `this`, and define equality based on this data members however we like.
-  
-  Fifth, why is the call to the parent's `_equals`?  Well, if not, then data members of `this` and `other` that are defined in 'upstream' classes do not affect the determination of equality, which is wrong.
-  
-  Sixth, why is `_equals` kept `protected` and `virtual` throughout? It needs to be `protected`, rather than `private`, because it needs to be called by subclasses. It needs to be `virtual`, even in a 'leaf' class, because any class in this hierarchy may be subclassed later either in our own code or in user's separate code, and in that situation we need polymorphism to remain functional.
-  
+
+Why does the solution take this route?
+
+First, I've used a `public`, non-`virtual` `operator==` to define the API, and delegated implementation details to a `protected` `virtual` function `_equals`. This follows [Herb Sutter's recommendations](http://www.gotw.ca/publications/mill18.htm).
+
+Second, the public API defines the comparison between any two objects in the class hierarchy, on both sides of the `==` sign.
+
+Third, why do we need to check `typeid`? Clearly, the `typeid`s of both objects must match in order for them to be equal. But can we omit this check and achieve the same effect? Suppose `this` is an object of class `C` and `other` is an object of class `D` (a subclass of `C`), then `C::_equals` is called.  When `other` is cast to an object of class `C`, any data members of `other` that are introduced in class `D` are lost. As long as the `C` and `A` parts of `other` match those of `this`, the function will return `true`.  This is of course the wrong answer, because the `D`-specific extra stuff in `other` do not participate in the comparison, as they should.
+
+On the other hand, suppose `this` is a `D` object and `other` is a `C` object, then `D::_equals` is called. If we omit the check on `typeid` and go ahead `cast` `other` to class `D` (of subclass of `C`), it will be a run-time (or compile-time?) error.
+
+Fourth, the rational for comparison based on data members of the `this` class is easy to understand. Actually, after the `typeid` check and `cast`, both `this` and `other` are of the same class, as they actually are but possibly disguised by the declared type of the references. Only when the object `other` is treated as exactly its dynamic type, not any base class (whereas `other` can't be of a subclass of the class of `this`, given that it has passed the `typeid` check), can we fully access all the data members defined in this class of `this`, and define equality based on this data members however we like.
+
+Fifth, why is the call to the parent's `_equals`?  Well, if not, then data members of `this` and `other` that are defined in 'upstream' classes do not affect the determination of equality, which is wrong.
+
+Sixth, why is `_equals` kept `protected` and `virtual` throughout? It needs to be `protected`, rather than `private`, because it needs to be called by subclasses. It needs to be `virtual`, even in a 'leaf' class, because any class in this hierarchy may be subclassed later either in our own code or in user's separate code, and in that situation we need polymorphism to remain functional.
+
   
   
   
