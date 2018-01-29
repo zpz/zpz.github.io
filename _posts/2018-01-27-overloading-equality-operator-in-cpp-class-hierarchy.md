@@ -286,7 +286,7 @@ We see the solution is quite systematic and routine. The pattern is clear:
 - Every subclass that has its own data members that affect the equality relation of two objects of that subclass should re-define `_equals`, and keep it `protected` and `virtual`.
 - All the `operator==`, `operator!=`, and `_quals` functions have a single argument which is a `const` reference to the *root* class, *not* any particular subclass.
 - The function `_equals` does exactly three things: 
-  1. Check for un-equality according to `typeid`, which determines the [**dynamic type**](https://stackoverflow.com/a/7649711/6178706]() of both the 'current' and the 'other' objects.
+  1. Check for un-equality according to `typeid`, which determines the [**dynamic type**](https://stackoverflow.com/a/7649711/6178706]) of both the 'current' and the 'other' objects.
   2.  Check for un-equality according to data members, if any, introduced in the 'current' subclass (meaning the subclass in which the the implementation of `_equals` is in question).
   3. Call `_equals` of the parent class (unless the current class is the root class).
 
@@ -306,9 +306,3 @@ Fifth, why is the call to the parent's `_equals`?  Well, if not, then data membe
 
 Sixth, why is `_equals` kept `protected` and `virtual` throughout? It needs to be `protected`, rather than `private`, because it needs to be called by subclasses. It needs to be `virtual`, even in a 'leaf' class, because any class in this hierarchy may be subclassed later either in our own code or in user's separate code, and in that situation we need polymorphism to remain functional.
 
-  
-  
-  
-  
-  
-   
