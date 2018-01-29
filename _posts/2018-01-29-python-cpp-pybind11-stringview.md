@@ -69,3 +69,107 @@ PYBIND11_MODULE(_example, m)
 }
 ```
 
+```
+>>> from _example import Item
+>>> x = 'abcd'
+>>> y = Item(x)
+>>> y.value
+'e\x00\x00j'
+>>> y.value
+'e\x00\x00j'
+>>> x = 'xyz'
+>>> y = Item(x)
+>>> y.value
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xcf in position 2: unexpected end of data
+'utf-8' codec can't decode byte 0xcf in position 2: unexpected end of data
+>>> 
+```
+
+```
+>>> x = b'abcd'
+>>> x
+b'abcd'
+>>> y = Item(x)
+>>> y.value
+'abcd'
+>>> x = 'xyz'.encode()
+>>> y = Item(x)
+>>> y.value
+'xyz'
+>>> 
+```
+
+```
+>>> y = Item(b'abcd')
+>>> y.value
+'e\x00\x00j'
+>>> y = Item('xyz'.encode())
+>>> y.value
+'e\x00\x00'
+>>> y.value
+'e\x00\x00'
+>>> y.value
+'\x00|\t'
+>>> y.value
+'e\x00\x00'
+>>> y.value
+'e\x00\x00'
+>>> y.value
+'\x00|\t'
+>>> 
+
+```
+
+
+```
+class Item {                                                                                            
+    public:                                                                                             
+        Item(string_view value) : _value{value} {}                                                      
+                                                                                                        
+        Item(string value) : _string_value{value}, _value{_string_value} {}                             
+                                                                                                        
+        string_view value() const {                                                                     
+            return _value;                                                                              
+        }                                                                                               
+                                                                                                        
+        void print() const {                                                                            
+            std::cout << _value << std::endl;                                                           
+        }                                                                                               
+                                                                                                        
+    private:                                                                                            
+        string _string_value;                                                                           
+        string_view _value;                                                                             
+};        
+```
+
+```
+    py::class_<Item>(m, "Item")                                                                         
+        .def(py::init<string>())                                                                        
+        .def("print", &Item::print)                                                                     
+        .def_property_readonly("value", &Item::value);    
+```
+
+
+```
+>>> y = Item(b'abcd')
+>>> y.value
+'abcd'
+>>> y.value
+'abcd'
+>>> y.value
+'abcd'
+>>> y = Item('xyz'.encode())
+>>> y.value
+'xyz'
+>>> 
+>>> y.value
+'xyz'
+>>> z = [Item(b'abc'), Item(b'def'), Item(b'123'), Item(b'rst')]
+>>> [zz.value for zz in z]
+['abc', 'def', '123', 'rst']
+>>> 
+
+```
+
