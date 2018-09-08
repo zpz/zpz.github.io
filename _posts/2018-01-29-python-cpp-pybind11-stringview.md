@@ -10,7 +10,7 @@ While calling this C++ code from Python via `pybind11` bindings, some baffling b
 The (simplified) C++ code started like this:
 
 
-```cpp
+{% highlight cpp %}
 // File '_example.cc'.
 
 #include <pybind11/pybind11.h>
@@ -72,14 +72,14 @@ PYBIND11_MODULE(_example, m)
         .def(py::init<std::vector<Item>>())
         .def("print", &Row::print);
 }
-```
+{% endhighlight %}
 
 The header file `pybind11/stl.h` is included to perform automatic conversion from a Python `list` to C++ `vector`
 in calls to the `Row` constructor; otherwise it does not play any role in the behaviors we'll discuss below.
 
 Let's use the binding to the class `Item` first, in a Python interpreter:
  
-```pycon
+{% highlight pycon %}
 >>> from _example import Item
 >>> x = 'abcd'
 >>> y = Item(x)
@@ -95,7 +95,7 @@ Traceback (most recent call last):
 UnicodeDecodeError: 'utf-8' codec can't decode byte 0xcf in position 2: unexpected end of data
 'utf-8' codec can't decode byte 0xcf in position 2: unexpected end of data
 >>> 
-```
+{% endhighlight %}
 
 Ooops! Doesn't look too good. We're using Python `str` here. Let's use some `bytes`:
 
@@ -198,7 +198,7 @@ However, I did not want to complicate the C++ code. I wanted to keep the C++ cod
 
 The solution points straight at the cause: temporaries. Let's save the temporaries and make sure they outlive their use. I created a Python file `example.py`, which `import`s `Item` from the dynamic library `_example` and does thing about it:
 
-```python
+{% highlight python %}
 from _example import Item, Row
 
 
@@ -215,7 +215,7 @@ def item_init(self, value):
         item_init_original(self, value)                                                
 
 Item.__init__ = item_init
-```
+{% endhighlight %}
 
 So I modified the `__init__` method of the class `Item`. Because we're adding members to the class (namely, `self._value`), we need to use `py::dynamic_attr` in the binding code:
 
