@@ -93,7 +93,7 @@ This is where daily development happens.
 
    If no one is collaborating on branch **feature-a** with you, `rebase` has some advantages: 
 
-   ```
+   ```bash
    git checkout develop
    git pull
    git checkout feature-a
@@ -104,7 +104,7 @@ This is where daily development happens.
 
    If you are not the only one working on branch **feature-a**, or if you're nervous about `rebase`, then use `merge`:
 
-   ```
+   ```bash
    git checkout develop
    git pull
    git checkout feature-a

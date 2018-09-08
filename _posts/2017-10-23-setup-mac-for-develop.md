@@ -50,7 +50,7 @@ With a brand new Mac laptop, I usually do the following set-up in prep for progr
 11. Create a directory tree for work. I prefer to use the following fixed directory structure
     to host code work,
 
-    ```
+    ```sh
     cd ~
     mkdir -p work
     cd work

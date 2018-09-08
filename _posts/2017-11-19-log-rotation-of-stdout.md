@@ -16,7 +16,7 @@ for UNIX services.
 
 Suppose our program `myapp` logs to `stdout` or `stderr` periodically, simply do
 
-```
+```sh
 myapp 2>&1 | multilog s1000000 n10 /path-to-log/myapp
 ```
 
@@ -32,7 +32,7 @@ and older ones are discarded; this is controlled by the argument `n10`.
 If we want to observe the terminal printout in the meantime,
 we can do
 
-```
+```sh
 myapp 2>&1 | tee >(multilog s1000000 n10 /path-to-log/myapp)
 ```
 
@@ -63,13 +63,13 @@ that will work well with such `stdout` capturing.
 
 If you want to observe the terminal printout as well as capture it in files, you may be tempted to use
 
-```
+```sh
 python myapp.py 2>&1 | tee >(multilog s1000000 n10 /path-to-log/myapp)
 ```
 
 To your surprise, you won't see printouts. Instead, you need to use
 
-```
+```sh
 python -u myapp.py 2>&1 | tee >(multilog s1000000 n10 /path-to-log/myapp)
 ```
 

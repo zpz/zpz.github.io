@@ -10,7 +10,7 @@ While calling this C++ code from Python via `pybind11` bindings, some baffling b
 The (simplified) C++ code started like this:
 
 
-```cpp
+```c++
 // File '_example.cc'.
 
 #include <pybind11/pybind11.h>
@@ -79,7 +79,7 @@ in calls to the `Row` constructor; otherwise it does not play any role in the be
 
 Let's use the binding to the class `Item` first, in a Python interpreter:
  
-{% highlight pycon %}
+```python
 >>> from _example import Item
 >>> x = 'abcd'
 >>> y = Item(x)
@@ -95,11 +95,11 @@ Traceback (most recent call last):
 UnicodeDecodeError: 'utf-8' codec can't decode byte 0xcf in position 2: unexpected end of data
 'utf-8' codec can't decode byte 0xcf in position 2: unexpected end of data
 >>> 
-{% endhighlight %}
+```
 
 Ooops! Doesn't look too good. We're using Python `str` here. Let's use some `bytes`:
 
-{% highlight pycon %}
+```python
 >>> x = b'abcd'
 >>> x
 b'abcd'
@@ -111,11 +111,11 @@ b'abcd'
 >>> y.value
 'xyz'
 >>> 
-{% endhighlight %}
+```
 
 Better! Since the string values are not used other than initiating the `Item` objects, let's use literals directly the `Item` initializer:
 
-{% highlight pycon %}
+```python
 >>> y = Item(b'abcd')
 >>> y.value
 'e\x00\x00j'
@@ -133,7 +133,7 @@ Better! Since the string values are not used other than initiating the `Item` ob
 >>> y.value
 '\x00|\t'
 >>> 
-{% endhighlight %}
+```
 
 Ooops! Not too good. What's happening here?
 
@@ -147,7 +147,7 @@ In the code above the block that works, I save some `str` (not `bytes`) in `x`, 
 
 OK, I understand it. Now, how do I fix it? An easy solution is to have a version in C++ that accepts `string`, not `string_view`, and expose only the `string` version to Python. The changed class `Item` looks like this:
 
-{% highlight cpp %}
+```cpp
 class Item {
     public:
         Item(string_view value) : _value{value} {}                                                      
@@ -162,19 +162,19 @@ class Item {
         string _string_value;                                                                           
         string_view _value;                                                                             
 };
-{% endhighlight %}
+```
 
 The binding code becomes
 
-{% highlight cpp %}
+```cpp
     py::class_<Item>(m, "Item")
         .def(py::init<string>())                                                           
         .def_property_readonly("value", &Item::value);    
-{% endhighlight %}
+```
 
 This works, as is easily verified:
 
-{% highlight pycon %}
+```python
 >>> y = Item(b'abcd')
 >>> y.value
 'abcd'
@@ -192,13 +192,13 @@ This works, as is easily verified:
 >>> [zz.value for zz in z]
 ['abc', 'def', '123', 'rst']
 >>> 
-{% endhighlight %}
+```
 
 However, I did not want to complicate the C++ code. I wanted to keep the C++ code absolutely clean and performant. Whatever issue Python has, it better solves it itself. I removed the `string` version of `Item::Item` and reverted to the original version.
 
 The solution points straight at the cause: temporaries. Let's save the temporaries and make sure they outlive their use. I created a Python file `example.py`, which `import`s `Item` from the dynamic library `_example` and does thing about it:
 
-{% highlight python %}
+```python
 from _example import Item, Row
 
 
@@ -215,20 +215,20 @@ def item_init(self, value):
         item_init_original(self, value)                                                
 
 Item.__init__ = item_init
-{% endhighlight %}
+```
 
 So I modified the `__init__` method of the class `Item`. Because we're adding members to the class (namely, `self._value`), we need to use `py::dynamic_attr` in the binding code:
 
-{% highlight cpp %}
+```cpp
     py::class_<Item>(m, "Item", py::dynamic_attr())
         .def(py::init<string_view>())                                             
         .def("print", &Item::print)                                               
         .def_property_readonly("value", &Item::value); 
-{% endhighlight %}
+```
 
 I was a little unsure about hacking `__init__`, but the result is assuring:
 
-{% highlight pycon %}
+```python
 >>> from example import Item
 >>> y = Item('abcd')
 >>> y.value
@@ -252,11 +252,11 @@ I was a little unsure about hacking `__init__`, but the result is assuring:
 >>> y.value
 'xyz'
 >>> 
-{% endhighlight %}
+```
 
 Now on to `Row`, which is constructed by a `vector` of `Item`s:
 
-{% highlight pycon %}
+```python
 >>> from example import Item, Row
 >>> values = ['abcd', 'xyz'.encode(), b'##12a', b'!#@<>_x']
 >>> items = [Item(v) for v in values]
@@ -266,11 +266,11 @@ abcd, xyz, ##12a, !#@<>_x
 >>> row.print()
 abcd, xyz, ##12a, !#@<>_x
 >>> 
-{% endhighlight %}
+```
 
 Nice.
 
-{% highlight pycon %}
+```python
 >>> row = Row([Item(v) for v in values])
 >>> row.print()
 �+��, xyz, ##12a, !#@<>_x
@@ -287,7 +287,7 @@ x(��, xyz, ##12a, !#@<>_x
 >>> row.print()
 �)��, xyz, ##12a, !#@<>_x
 >>> 
-{% endhighlight %}
+```
 
 Oooops! What's wrong, again?
 
@@ -295,7 +295,7 @@ Although we've saved the `str` or `bytes` in `Item`, now the `Item`s themselves 
 
 The solution is similar. We need to persist some things in `Row`:
 
-{% highlight python %}
+```python
 row_init_original = Row.__init__
                                                                                                                 
 def row_init(self, items):
@@ -303,19 +303,19 @@ def row_init(self, items):
     row_init_original(self, self._items)
 
 Row.__init__ = row_init
-{% endhighlight %}
+```
 
 Correspondingly, `py::dynamic_attr` is added to the binding code:
 
-{% highlight cpp %}
+```cpp
     py::class_<Row>(m, "Row", py::dynamic_attr())
         .def(py::init<std::vector<Item>>())
         .def("print", &Row::print);
-{% endhighlight %}
+```
 
 Does this fix it?
 
-{% highlight pycon %}
+```python
 >>> from example import Item, Row
 >>> values = ['abcd', 'xyz'.encode(), b'##12a', b'!#@<>_x']
 >>> row = Row([Item(v) for v in values])
@@ -326,6 +326,6 @@ abcd, xyz, ##12a, !#@<>_x
 >>> row.print()
 abcd, xyz, ##12a, !#@<>_x
 >>> 
-{% endhighlight %}
+```
 
 I guess so!

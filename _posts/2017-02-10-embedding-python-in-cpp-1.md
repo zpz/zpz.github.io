@@ -31,7 +31,7 @@ My main program is a realtime, low-latency, high-throughput, online sevice in C+
 
 The meat of the computation is carried out by the class `Engine`:
 
-```
+```python
 """
 Module `py4cc_1.py` in package `py4cc`.
 """
@@ -69,7 +69,7 @@ class Engine:
 
 The class `Driver` provides C++-facing API. It handles receiving task submissions, providing results to queries, and managing a process pool, in which each process runs a `Engine` instance:
 
-```
+```python
 """ 
 Module `py4cc_1.py` in package `py4cc1` (continued).
 """
@@ -197,7 +197,7 @@ To use the API, one must first `#include "Python.h"`, which on my Linux box is l
 
 Before anything python related, one needs to call
 
-```
+```cpp
 Py_Initialize();
 ```
 
@@ -206,25 +206,25 @@ to initiate the Python interpreter.  After that, the prevalent business is to cr
     
 For example,
 
-```
+```cpp
 PyObject * pModule = PyImport_Import(PyUnicode_FromString("py4cc1.py4cc"));
 ```
 
 does what the following accomplishes in Python:
 
-```
+```python
 import py4cc1.py4cc
 ```
 
 Top-level functions, classes, and variables in this module are then accessed as attributes of the object `pModule`. For example, to instantiate a `Driver` object, we need to first get the `Driver` class object,
 
-```
+```cpp
 PyObject * driver_cls = PyObject_GetAttrString(pModule, "Driver");
 ```
 
 Then initialize a `Driver` object using the API that calls a Python function (because we would do `Driver()` to initiate a `Driver` object as if `Driver` is just a function):
 
-```
+```cpp
 PyObject * noargs = PyTuple_New(0);
 PyObject * kwargs = PyDict_New();
 PyDict_SetItemString(kwargs, "max_tasks", PyLong_FromLong(64));
@@ -236,7 +236,7 @@ As one can see, the API functions are kind of straightforward. But boy, is that 
     
 My C++ header file that corresponds to the Python API is listed below.
 
-```
+```cpp
 // File `cc4py_1.h` in `cc4py`.
 
 #ifndef CC4PY_H_
@@ -323,7 +323,7 @@ A good part of the corresponding source file is listed below.
 The complete code is available at [https://github.com/zpz/cppy/tree/master/cc4py/cc4py_1.cc](https://github.com/zpz/cppy/tree/master/cc4py/cc4py_1.cc).
 You can get a feel of the tedious yet predictable style of this approach from this code sample.
 
-```
+```cpp
 // File `cc4py_1.cc` in `cc4py`.
 
 #include "cc4py.h"

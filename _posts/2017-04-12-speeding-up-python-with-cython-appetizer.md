@@ -20,7 +20,7 @@ Set it up
 
 Below is the function we need to speed up. Given a UNIX timestamp, the function returns the week-day, a number between 1 and 7 inclusive. Suppose in a real-world project we need to call this function a large number of times, and the time spent on this function has proven to be considerable.
 
-```
+```python
 # file 'version01.py'.
 
 from datetime import datetime
@@ -38,7 +38,7 @@ def weekdays(ts):
 
 We have created a Python package named `pycc` and made it visible on `PYTHONPATH`. The above is the module `version01` in this package. We also created a utility module `profiler` in package `pycc` with the content as follows:
 
-```
+```python
 # profiler.py
 
 import time
@@ -125,7 +125,7 @@ def lineprofiled(*funcs):
 The function `weekdays` is our "entry point" for testing. The testing code is as follows.
 
 
-```
+```python
 # test1.py
 
 from pycc import version01 as mymod
@@ -149,7 +149,7 @@ The decorator `timed` prints the execution time of the function that is decorate
 
 Running it, we get the execution time of `version01`:
 
-```
+```bash
 $ python test1.py 
 
 Function ` do_them ` took  0.8810409489960875 seconds to finish
@@ -164,7 +164,7 @@ Make it faster
 `version01` is clean and clear. However, when we think hard about the speed, we realize that figuring out the week-day from a timestamp involves quite a few steps of arithmetic. We could improve the speed by doing the time difference from a reference timestamp, for which we know the week-day. This could work because, unlike date, week proceeds strictly regularly.
 
 
-```
+```python
 # file 'version02.py'.
 
 from datetime import datetime
@@ -207,7 +207,7 @@ def weekdays(ts):
 
 Time it:
 
-```
+```bash
 $ python test2.py
 
 Function ` do_them ` took  0.9040505230077542 seconds to finish
@@ -216,7 +216,7 @@ Function ` do_them ` took  0.9040505230077542 seconds to finish
 Sorry, not faster than the baseline version. Before working on the speed, let's verify the result is correct by adding a function to verify results against the baseline:
 
 
-```
+```python
 # file 'version01.py', continued:
 
 def verify(timestamps, results):
@@ -232,7 +232,7 @@ Now on to speed tuning.
 In `version02`, we create the reference time by querying the current time at object initiation. Upon rethinking, it becomes clear that we don't need to query any 'current' time---we just need to use a fixed and convenient reference time.
 
 
-```
+```python
 # file 'version03.py'.
 
 def weekday(ts):
@@ -260,7 +260,7 @@ def weekdays(ts):
 
 Time it:
 
-```
+```bash
 $ python test3.py 
 
 Function ` do_them ` took  0.5782521039946005 seconds to finish
@@ -277,7 +277,7 @@ Make a copy of `version03.py` and call the new file `version04.pyx`. Make no cha
 Compile it using the Python package `easycython`:
 
 
-```
+```bash
 $ easycython version04.pyx
 Warning: Extension name 'version04' does not match fully qualified name 'pycc.version04' of 'version04.pyx'
 Compiling version04.pyx because it changed.
@@ -292,7 +292,7 @@ gcc -pthread -shared build/temp.linux-x86_64-3.5/version04.o -L/usr/local/lib -l
 
 This creates file `version04.c`, which is a C translation of the Cython source code. The C source is then compiled into a dynamic library, named with extension `so`.
 
-```
+```bash
 $ ls
 __init__.py    build/        version03.py                                version04.html
 __pycache__/   version01.py  version04.c                                 version04.pyx
@@ -302,7 +302,7 @@ _cc11binds.cc  version02.py  version04.cpython-35m-x86_64-linux-gnu.so*
 After this point, `version04` can be used just like any regular Python module. Let's time it:
 
 
-```
+```bash
 $ python test4.py 
 
 Function ` do_them ` took  0.29948758000682574 seconds to finish
@@ -323,7 +323,7 @@ Cython is a Python compiler that understands static type declarations and use th
 Variable types are declared via the `cdef` keyword. Argument types are declared in the C function style.
 
 
-```
+```python
 # file 'version05.pyx'.
 
 def weekday(long ts):
@@ -355,7 +355,7 @@ def weekdays(ts):
 Compile it using `easycython` and then time it:
 
 
-```
+```bash
 $ python test5.py 
 
 Function ` do_them ` took  0.03563655300240498 seconds to finish
@@ -369,7 +369,7 @@ And faster
 
 If a function's return value is a simple C type, it can be beneficial to declare that as well.
 
-```
+```python
 # file 'version06.pyx'.
 
 cdef long weekday(long ts): 
@@ -381,7 +381,7 @@ Note that we have replaced `def` by `cdef` in order to declare return type of th
 
 Now time it:
 
-```
+```bash
 $ python test6.py 
 
 Function ` do_them ` took  0.019489386002533138 seconds to finish
@@ -396,7 +396,7 @@ And faster
 Let's see whether Numpy can help us go further.
 
 
-```
+```python
 # file 'version07.pyx'.
 
 cimport numpy as np
@@ -414,7 +414,7 @@ def weekdays(np.ndarray[np.int64_t, ndim=1] ts):
 Compile it as before. The testing code becomes the following.
 
 
-```
+```python
 # file 'test7.py'
 
 import numpy as np
@@ -441,7 +441,7 @@ if __name__ == "__main__":
 
 Time it:
 
-```
+```bash
 docker-user@pycctalk in ~/work/src/pycctalk
 $ python test7.py 
 
@@ -453,7 +453,7 @@ Slower! How come?
 Well, it's known that accessing individual elements of a Numpy array is *inefficient*. (Numpy is great for *vectorized* operations.) Individual Numpy element access is happening repeatedly in `weekdays`. One idea is to turn those *Numpy element accesses* to *C array element accesses*. We'll also take this opportunity to change the Numpy interface `np.ndarray[np.int64_t, ndim=1]` to the more elegant, and more general, [*memoryview*](https://docs.python.org/3/library/stdtypes.html#memoryview)  interface (related to [buffer protocol](https://docs.python.org/3/c-api/buffer.html)).
 
 
-```
+```python
 # file 'version08.pyx'.
 
 import numpy as np
@@ -478,20 +478,20 @@ def weekdays(long[:] ts):
 
 Accordingly in the testing script, the line
 
-```
+```python
 z = do_them(timestamps)
 ```
 
 is replaced by
 
-```
+```python
 z = do_them(memoryview(timestamps))
 ```
 
 Compile as usual. Then time it:
 
 
-```
+```bash
 docker-user@pycctalk in ~/work/src/pycctalk
 $ python test8.py
 
@@ -514,7 +514,7 @@ The yellow-highlighted lines indicate Python, as opposed to C, operations. These
 
 In function `weekday`, we realize that the integer division and remainder functions `//` and `%` are Python functions. However, since the operands are all integers, we might use C functions of these operations for hopeful speed gain. This effect is achieved by the Cython decorator `cdivision`.
 
-```
+```python
 # file 'version09.pyx'
 
 import numpy as np
@@ -543,7 +543,7 @@ The function `weekdays` also has several yellow lines. Since they are outside of
 
 Now let's see how it performs:
 
-```
+```bash
 $ python test9.py 
 
 Function ` do_them ` took  0.005960473994491622 seconds to finish
@@ -558,7 +558,7 @@ Use `setup.py` to compile
 We have used `easycython` to compile the Cython source codes. This works fine for simple scenarios. For more complex and precise control, a `setup.py` file is the way to go. For the record, here is the `setup.py` file we can use for our case.
 
 
-```
+```python
 # file 'setup.py'.
 
 debug = False
@@ -603,7 +603,7 @@ setup(
 
 To compile using `setup.py`, do
 
-```
+```bash
 $ python setup.py build_ext --inplace
 ```
 
@@ -614,7 +614,7 @@ Line-profile Cython code
 Notice that `setup.py` contains a flag `debug = False`. If it is set to `True`, we can profile the Cython code to deep dive and identify potential bottlenecks. Let's try it.
 
 
-```
+```python
 # file 'version10.pyx'.
 
 import numpy as np
@@ -638,14 +638,14 @@ There are two changes in this code. First, the functions we intend to profile ar
 
 Remember to set `debug` to `True` in `setup.py`, and then compile with
 
-```
+```bash
 $ python setup.py build_ext --inplace
 ```
 
 The testing script is changed to specify what functions to profile:
 
 
-```
+```python
 # file 'test10.py'.
 
 import numpy as np
@@ -675,7 +675,7 @@ if __name__ == "__main__":
 
 Now that Cython is compiled and profiling is set up, let's see it at work:
 
-```
+```bash
 $ python test10.py
 Timer unit: 1e-06 s
 

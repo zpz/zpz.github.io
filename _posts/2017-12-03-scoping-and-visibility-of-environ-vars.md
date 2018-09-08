@@ -18,7 +18,7 @@ run in a **subshell**. Variables defined in the parent shell are visible in the 
 but not the other way around.
 
 Bash shell script
-```bash
+```sh
 A=38
 
 (
@@ -56,7 +56,7 @@ echo B: $B
 ```
 
 Output:
-```
+```sh
 in subshell
 A: 38
 A: 40
@@ -92,7 +92,7 @@ Comments:
 ## `bash script.sh` vs `source script.sh`
 
 `vars.sh` defines variables:
-```
+```sh
 # vars.sh
 
 A=a
@@ -100,7 +100,7 @@ export B=b
 ```
 
 `caller.sh` 'calls' this script:
-```
+```sh
 # caller.sh
 
 bash ./vars.sh
@@ -109,13 +109,13 @@ echo B: $B
 ```
 
 Output:
-```
+```sh
 A:
 B:
 ```
 
 Use `source` instead of `bash` to execute a script:
-```
+```sh
 # caller2.sh
 
 source ./vars.sh
@@ -124,7 +124,7 @@ echo B: $B
 ```
 
 Output:
-```
+```sh
 A: a
 B: b
 ```
@@ -151,7 +151,7 @@ Next we want to access these variables from a program that is called in this cri
 For now, the other 'program' is a shell script.
 
 'Driver' script:
-```
+```sh
 # sh1.sh
 
 A=a
@@ -161,7 +161,7 @@ bash ./sh2.sh
 ```
 
 'Callee' program:
-```
+```sh
 # sh2.sh
 
 echo A: $A
@@ -169,7 +169,7 @@ echo B: $B
 ```
 
 Output of `bash ./sh1.sh`:
-```
+```sh
 A:
 B:
 ```
@@ -181,7 +181,7 @@ only when the callee is also a shell script. We'll downplay this usage.)
 
 
 Revised 'driver' script which `export`s the variables:
-```
+```sh
 # sh3.sh
 
 export A=a
@@ -191,7 +191,7 @@ bash ./sh2.sh
 ```
 
 Output of `bash ./sh3.sh`:
-```
+```sh
 A: a
 B: b
 ```
@@ -204,18 +204,18 @@ Comments:
 
 
 By the way,
-```
+```sh
 export A=a
 export B=b
 ```
 is equivalent to
-```
+```sh
 A=a
 B=b
 export A B
 ```
 and
-```
+```sh
 export A B
 A=a
 B=b
@@ -226,7 +226,7 @@ B=b
 This situation is not different from calling another shell script using `bash`.
 
 Driver script:
-```
+```sh
 # sh1.sh
 A=a
 export B=b
@@ -234,7 +234,7 @@ python sh.py
 ```
 
 Callee program:
-```
+```sh
 # sh.py
 import os
 
@@ -243,7 +243,7 @@ print('B: ' + os.environ.get('B', ''))
 ```
 
 Output of `bash ./sh1.sh`:
-```
+```sh
 A:
 B: b
 ```

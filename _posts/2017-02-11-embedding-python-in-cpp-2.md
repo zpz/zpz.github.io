@@ -31,19 +31,19 @@ The [documentation](http://pybind11.readthedocs.io/en/master/) is serious but st
 
 The C++ header file is identical to the first version in [part 1](http://zpz.github.io/embedding-python-in-cpp-1/) except for two lines. One is an extra include
 
-```
+```cpp
 #include "pybind11/pybind11.h"
 ```
 
 The other is replacing
 
-```
+```cpp
 PyObject * _engine = nullptr;
 ```
 
 by
 
-```
+```cpp
 py::object _engine;
 ```
 
@@ -51,7 +51,7 @@ This is an important difference: with Python/C API, we work with bare C pointers
 
 The source file is across-the-board cleaner and simpler than the previous version. Here is the method `initialize`:
 
-```
+```cpp
 void Driver::initialize(
     std::string const & model_config_json,
     std::vector<std::string> const & float_feature_names,
@@ -76,7 +76,7 @@ Note how the tedious type conversions (`PyLong_FromLong` and the like) are gone 
 
 The method `retrieve` goes like this:
 
-```
+```cpp
 TaskResult Driver::retrieve(const long key)
 {
     py::tuple z = _driver.attr("retrieve")(key);

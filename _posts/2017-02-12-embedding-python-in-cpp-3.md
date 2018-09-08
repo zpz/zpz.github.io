@@ -13,7 +13,7 @@ There are two headers relevant to this topic: `pybind11/stl.h` and `pybind11/stl
 
 The Python code below operations on the objects that are passed in from C++. However, this is pure Python code unaware that it is going to be called from C++. This module resides in package `py4cc`. The package is found on `PYTHONPATH` and is located independently of the C++ code that would call it.
 
-```
+```python
 # File `stl.py` in package `py4cc`.
 
 def show(x, pp=True):
@@ -57,7 +57,7 @@ Note that `stl.h` is `#include`d. Also not that at one point the Python module l
 
 Code:
 
-```
+```cpp
 // File `test_cast.cc` in `cc11bind`.
 
 #include "Python.h"
@@ -134,7 +134,7 @@ int main()
 
 Output:
 
-```
+```bash
 $ ./test_cast 
 Python type: list
   __repr__: [1, 3, 5]
@@ -184,7 +184,7 @@ I verified that with `#include "pybind11/stl.h"`, passing is by value, as demons
 
 Code:
 
-```
+```cpp
 // File `test_copy.cc` in `cc11bind`.
 
 #include "Python.h"
@@ -244,7 +244,7 @@ int main()
 
 Output:
 
-```
+```bash
 $ ./test_copy 
 before `cumsum`, in C++ --- [1, 3, 5]
 before `cumsum`, in Python --- <class 'list'>: [1, 3, 5]
@@ -275,7 +275,7 @@ In order to pass a C++ STL container to Python "by reference", one needs to "bin
 
 `pybind11` provides these binding classes. One needs to expose these classes to Python in a Python module that is written in C++. The following is my module for this purpose. The file is located in the package `py4cc2`. Compile this file to create a shared library in the package folder, and `import` it in Python or C++.
 
-```
+```cpp
 // File `_cc11binds.cc` in package `py4cc`.
 
 // Compile:
@@ -309,7 +309,7 @@ The code below demonstrates various combinations of `#include "pybind11/stl.h"` 
 
 Code:
 
-```
+```cpp
 // File `test_ref` in `cc11bind`.
 
 #include "Python.h"
@@ -425,7 +425,7 @@ int main()
 
 Output:
 
-```
+```bash
 $ ./test_ref 
 === pass as `&x` ===
 
@@ -501,7 +501,7 @@ Observations regarding C++ const correctness:
 
 Code:
 
-```
+```cpp
 // File `test_kwargs.cc` in `cc11bind`.
 
 #include "Python.h"
@@ -576,7 +576,7 @@ int main()
 
 Output:
 
-```
+```bash
 $ ./test_kwargs 
 before `cumsum`, in C++ --- [1, 3, 5]
 before `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 3, 5]
@@ -608,7 +608,7 @@ Observations (some code and output are not shown):
 
 1. Pass-by-reference does not work in named arguments, i.e, the following do not work:
 
-   ```
+   ```cpp
    auto kwargs = py::dict(py::arg("x") = &x);
    f(**kwargs);
 
@@ -621,7 +621,7 @@ Observations (some code and output are not shown):
 
 2. Pass-by-reference works in "star" arguments
 
-   ```
+   ```cpp
    auto args = py::list();
    args.append(&x);
    f(*args);

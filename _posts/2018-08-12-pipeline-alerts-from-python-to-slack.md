@@ -17,7 +17,7 @@ I decided to take control of sending the alerts myself (my code itself, that is)
 The notifier is designed as a Python decorator to be applied to any function that could raise an exception:
 
 
-```Python
+```python
 from datetime import datetime
 import functools
 import inspect
@@ -165,8 +165,7 @@ Two things are worth noting:
 
 This decorator function calls `should_send_alert` to determine whether a notification should be sent:
 
-```Python
-
+```python
 def should_send_alert(status: str, 
                       ff: Path, 
                       silent_seconds: Union[float, int],
@@ -205,7 +204,7 @@ In words, the alerting rule can be summarized as follows:
 
 Sending notification to Slack is handled by the function `notify_slack`:
 
-```Python
+```python
 import json
 import  logging
 import threading

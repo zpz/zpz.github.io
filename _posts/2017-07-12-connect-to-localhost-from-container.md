@@ -20,25 +20,25 @@ Step 1
 
 If the host OS is Mac, do this:
 
-```
+```sh
 sudo ifconfig lo0 alias 10.254.254.254
 ```
 
 If Linux, do this:
 
-```
+```sh
 sudo ifconfig lo:0 10.254.254.254
 ```
 
 After this, you can check the effect by
 
-```
+```sh
 ifconfig lo:0
 ```
 
 which will print
 
-```
+```sh
 lo:0      Link encap:Local Loopback
           inet addr:10.254.254.254  Mask:255.0.0.0
           UP LOOPBACK RUNNING  MTU:65536  Metric:1
@@ -46,7 +46,7 @@ lo:0      Link encap:Local Loopback
 
 whereas before setting the alias, the printout would be
 
-```
+```sh
 lo:0      Link encap:Local Loopback
           UP LOOPBACK RUNNING  MTU:65536  Metric:1
 ```
@@ -58,7 +58,7 @@ I don't know what's good about `10.254.254.254`; it comes from [this post](http:
 You will want these settings to survive system reboot, i.e. want these settings to be run at system startup.
 To do that, put the following block (with blank lines before and after) in the file `/etc/network/interfaces`:
 
-```
+```sh
 auto lo:0
 allow-hotplug lo:0
 iface lo:0 inet static
@@ -71,7 +71,7 @@ Step 2
 
 Use these options in the `docker run` command that launches container B:
 
-```
+```sh
 docker run --add-host=local_host:10.254.254.254 --add-host=local:10.254.254.254 blah blah
 ```
 
