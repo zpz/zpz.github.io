@@ -9,4 +9,4 @@ My name is Zepu Zhang.
 
 ### Contact me
 
-[zepu.zhang@gmail.com](mailto:zepu.zhang@gmail.com)
+My first name, a dot, and my last name, hosted by gmail.
