@@ -10,7 +10,7 @@ While calling this C++ code from Python via `pybind11` bindings, some baffling b
 The (simplified) C++ code started like this:
 
 
-{% highlight cpp %}
+```cpp
 // File '_example.cc'.
 
 #include <pybind11/pybind11.h>
@@ -72,7 +72,7 @@ PYBIND11_MODULE(_example, m)
         .def(py::init<std::vector<Item>>())
         .def("print", &Row::print);
 }
-{% endhighlight %}
+```
 
 The header file `pybind11/stl.h` is included to perform automatic conversion from a Python `list` to C++ `vector`
 in calls to the `Row` constructor; otherwise it does not play any role in the behaviors we'll discuss below.
