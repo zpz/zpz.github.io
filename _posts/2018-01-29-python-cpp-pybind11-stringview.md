@@ -10,7 +10,7 @@ While calling this C++ code from Python via `pybind11` bindings, some baffling b
 The (simplified) C++ code started like this:
 
 
-```C++
+```cpp
 // File '_example.cc'.
 
 #include <pybind11/pybind11.h>
@@ -147,7 +147,7 @@ In the code above the block that works, I save some `str` (not `bytes`) in `x`, 
 
 OK, I understand it. Now, how do I fix it? An easy solution is to have a version in C++ that accepts `string`, not `string_view`, and expose only the `string` version to Python. The changed class `Item` looks like this:
 
-```c++
+```cpp
 class Item {
     public:
         Item(string_view value) : _value{value} {}                                                      
@@ -166,7 +166,7 @@ class Item {
 
 The binding code becomes
 
-```c++
+```cpp
     py::class_<Item>(m, "Item")
         .def(py::init<string>())                                                           
         .def_property_readonly("value", &Item::value);    
@@ -219,7 +219,7 @@ Item.__init__ = item_init
 
 So I modified the `__init__` method of the class `Item`. Because we're adding members to the class (namely, `self._value`), we need to use `py::dynamic_attr` in the binding code:
 
-```c++
+```cpp
     py::class_<Item>(m, "Item", py::dynamic_attr())
         .def(py::init<string_view>())                                             
         .def("print", &Item::print)                                               
@@ -307,7 +307,7 @@ Row.__init__ = row_init
 
 Correspondingly, `py::dynamic_attr` is added to the binding code:
 
-```c++
+```cpp
     py::class_<Row>(m, "Row", py::dynamic_attr())
         .def(py::init<std::vector<Item>>())
         .def("print", &Row::print);
