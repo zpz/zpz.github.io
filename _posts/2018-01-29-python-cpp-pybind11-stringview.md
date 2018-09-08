@@ -79,7 +79,7 @@ in calls to the `Row` constructor; otherwise it does not play any role in the be
 
 Let's use the binding to the class `Item` first, in a Python interpreter:
  
-```
+```pycon
 >>> from _example import Item
 >>> x = 'abcd'
 >>> y = Item(x)
@@ -99,7 +99,7 @@ UnicodeDecodeError: 'utf-8' codec can't decode byte 0xcf in position 2: unexpect
 
 Ooops! Doesn't look too good. We're using Python `str` here. Let's use some `bytes`:
 
-```
+```pycon
 >>> x = b'abcd'
 >>> x
 b'abcd'
@@ -115,7 +115,7 @@ b'abcd'
 
 Better! Since the string values are not used other than initiating the `Item` objects, let's use literals directly the `Item` initializer:
 
-```
+```pycon
 >>> y = Item(b'abcd')
 >>> y.value
 'e\x00\x00j'
@@ -147,7 +147,7 @@ In the code above the block that works, I save some `str` (not `bytes`) in `x`, 
 
 OK, I understand it. Now, how do I fix it? An easy solution is to have a version in C++ that accepts `string`, not `string_view`, and expose only the `string` version to Python. The changed class `Item` looks like this:
 
-```
+```c++
 class Item {
     public:
         Item(string_view value) : _value{value} {}                                                      
@@ -166,7 +166,7 @@ class Item {
 
 The binding code becomes
 
-```
+```c++
     py::class_<Item>(m, "Item")
         .def(py::init<string>())                                                           
         .def_property_readonly("value", &Item::value);    
@@ -174,7 +174,7 @@ The binding code becomes
 
 This works, as is easily verified:
 
-```
+```pycon
 >>> y = Item(b'abcd')
 >>> y.value
 'abcd'
@@ -198,7 +198,7 @@ However, I did not want to complicate the C++ code. I wanted to keep the C++ cod
 
 The solution points straight at the cause: temporaries. Let's save the temporaries and make sure they outlive their use. I created a Python file `example.py`, which `import`s `Item` from the dynamic library `_example` and does thing about it:
 
-```
+```python
 from _example import Item, Row
 
 
@@ -219,7 +219,7 @@ Item.__init__ = item_init
 
 So I modified the `__init__` method of the class `Item`. Because we're adding members to the class (namely, `self._value`), we need to use `py::dynamic_attr` in the binding code:
 
-```
+```c++
     py::class_<Item>(m, "Item", py::dynamic_attr())
         .def(py::init<string_view>())                                             
         .def("print", &Item::print)                                               
@@ -228,7 +228,7 @@ So I modified the `__init__` method of the class `Item`. Because we're adding me
 
 I was a little unsure about hacking `__init__`, but the result is assuring:
 
-```
+```pycon
 >>> from example import Item
 >>> y = Item('abcd')
 >>> y.value
@@ -256,7 +256,7 @@ I was a little unsure about hacking `__init__`, but the result is assuring:
 
 Now on to `Row`, which is constructed by a `vector` of `Item`s:
 
-```
+```pycon
 >>> from example import Item, Row
 >>> values = ['abcd', 'xyz'.encode(), b'##12a', b'!#@<>_x']
 >>> items = [Item(v) for v in values]
@@ -267,8 +267,10 @@ abcd, xyz, ##12a, !#@<>_x
 abcd, xyz, ##12a, !#@<>_x
 >>> 
 ```
+
 Nice.
-```
+
+```pycon
 >>> row = Row([Item(v) for v in values])
 >>> row.print()
 �+��, xyz, ##12a, !#@<>_x
@@ -293,7 +295,7 @@ Although we've saved the `str` or `bytes` in `Item`, now the `Item`s themselves 
 
 The solution is similar. We need to persist some things in `Row`:
 
-```
+```python
 row_init_original = Row.__init__
                                                                                                                 
 def row_init(self, items):
@@ -305,15 +307,15 @@ Row.__init__ = row_init
 
 Correspondingly, `py::dynamic_attr` is added to the binding code:
 
-```
+```c++
     py::class_<Row>(m, "Row", py::dynamic_attr())
         .def(py::init<std::vector<Item>>())
         .def("print", &Row::print);
 ```
 
- Does this fix it?
+Does this fix it?
 
-```
+```pycon
 >>> from example import Item, Row
 >>> values = ['abcd', 'xyz'.encode(), b'##12a', b'!#@<>_x']
 >>> row = Row([Item(v) for v in values])
