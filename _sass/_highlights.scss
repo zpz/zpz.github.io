@@ -1,9 +1,11 @@
 // Taken from:
 // https://github.com/saveriomiroddi/saveriomiroddi.github.io
+// with tweaks to code color.
 
 
 code {
   font-family:'Bitstream Vera Sans Mono','Courier', monospace;
+  background: #e0e0e0;
 }
 
 /*
@@ -23,6 +25,12 @@ pre.highlight {
   background: #343642;
   color: #C1C2C3;
 }
+
+pre code {
+  background: #343642;
+  color: #C1C2C3;
+}
+
 
 .highlight .hll { background-color: #ffc; }
 .highlight .gd { color: #2e3436; background-color: #0e1416; }
