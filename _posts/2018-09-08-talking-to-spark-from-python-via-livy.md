@@ -223,8 +223,8 @@ class SparkSession:
 ```
 
 What does this method return?
-Basically, it returns the "interesting" part of the response of the HTTP `GET`in the method `_wait`.
-The `GET` queries the reponse of the submitted code.
+Basically, it returns the "interesting" part of the response of the HTTP `GET` in the method `_wait`.
+The `GET` queries the result of executing the submitted code.
 The interesting part of the response may be, for example,
 some "return value" of the code or some print-out in the code.
 This will become more clear as we encounter different code patterns.
@@ -351,18 +351,21 @@ class PySparkSession(SparkSession):
 
 The method `read` takes either a variable's name, or a simple expression, like `'x + 3'`.
 First, we pick a random name (to avoid collision with other things) and assign `code` to this variable.
-If `code` is simply a varialbe's name, then this creates a trivial reference.
+If `code` is simply a variable's name, then this creates a trivial reference.
 If `code` is an expression that computes something, then this assigns the result to this random name.
 Then we retrieve the type of this random variable, to be used to restore the object on our side.
 How we retrieve the value and restore the object depends on this type info.
 
 If the type is `int`, `float`, `bool`, and `str`, we call `run` directly with the random variable's name,
-then cast the textual value to the correct type. Note that if the type is `str`, the value tranferred over the internet includes quotes, like "'my string value'". We need to remove the quotes to get the string value "my string value".
+then cast the textual value to the correct type. Note that if the type is `str`,
+the value transferred over the internet includes quotes, like "'my string value'". We need to remove the quotes to get the string value "my string value".
 
 If the type is a Spark `DataFrame`, we print it out on the Spark side row by row,
 get the print-outs on our side, and assembled the rows into a `pandas` `DataFrame`.
 
-If the type is something else, we "json-ize" it on the Spark side, and "de-json-ize" the textual value on our side. This works for simple `list`, `dict`, and `tuple` values. This is not bullet-proof for other types; we'll deal with issues as they come up in practice.
+If the type is something else, we "json-ize" it on the Spark side,
+and "de-json-ize" the textual value on our side. This works for simple `list`, `dict`, and `tuple` values.
+This is not bullet-proof for other types; we'll deal with issues as they come up in practice.
 
 Let's test this part:
 
@@ -499,7 +502,7 @@ class PySparkSession(SparkSession):
         Similar concerns about dependencies apply to `run_file`.
 
         Example (assuming it is meaningful to submit the module `myproject.util.spark` to Spark):
-            
+
             sess = PySparkSession()
             sess.run_module('myproject.util.spark')
 
