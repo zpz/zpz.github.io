@@ -240,7 +240,21 @@ class ScalaSparkSession(SparkSession):
 Now the kind of things in the test script above can be done very easily:
 
 ```python
-# test_scala.py
+# test_spark.py
+
+import pytest
+
+# import our utility functions...
+
+@pytest.fixture(scope='module')
+def pysession():
+    return PySparkSession()
+
+
+@pytest.fixture(scope='module')
+def scalasession():
+    return ScalaSparkSession()
+
 
 pi_scala = """
     val NUM_SAMPLES = 100000;
@@ -253,9 +267,7 @@ pi_scala = """
     println(\"Pi is roughly \" + pi)
     """
 
-def test_scala():
-    scalasession = ScalaSparkSession()
-
+def test_scala(scalasession):
     z = scalasession.run('1 + 1')
     assert z == 'res0: Int = 2'
 
@@ -265,7 +277,7 @@ def test_scala():
 
 Let's see it in action:
 ```sh
-$py.test -s test_scala.py
+$py.test -s test_spark.py:test_scala
 
 # results to be collected
 ```
@@ -274,7 +286,9 @@ The meat of this utility is to help us use `PySpark`.
 Basic things can be done with an object created by `SparkSession(kind='pyspark')`, like this:
 
 ```python
-# test_pyspark.py
+# test_spark.py
+
+# ...
 
 def test_pyspark():
     sess = SparkSession(kind='pyspark')
@@ -370,7 +384,9 @@ This is not bullet-proof for other types; we'll deal with issues as they come up
 Let's test this part:
 
 ```python
-# test_py.py
+# test_spark.py
+
+# ...
 
 pi_py = """\
     import random
@@ -399,8 +415,6 @@ pi_py = """\
 
 def test_py(pysession):
     print()
-
-    pysession = PySparkSession()
 
     pysession.run('z = 1 + 3')
     z = pysession.read('z')
@@ -463,7 +477,7 @@ def test_py(pysession):
 
 Here's the outcome:
 ```sh
-$py.test -s test_py.py
+$py.test -s test_spark.py:test_py
 
 # results to be collected
 ```
@@ -571,10 +585,11 @@ We intentionally let `run_module` return `None`.
 Here is a small test for `run_file`:
 
 ```python
-# test_file.py
+# test_spark.py
 
-def test_file():
-    pysession = PySparkSession()
+# ...
+
+def test_file(pysession):
     pysession.run_file(relative_path('./spark_test_scripts/script_a.py'))
     z = pysession.read('magic')
     assert 6.0 < z < 7.0
@@ -626,9 +641,11 @@ class PySparkSession(SparkSession):
 To test it,
 
 ```python
-# test_func.py
+# test_spark.py
 
-def test_func():
+# ...
+
+def test_func(pysession):
     f = '''\
     def myfunc(a, b, names, squared=False):
         assert len(a) == 3
@@ -641,7 +658,6 @@ def test_func():
         return d
     '''
 
-    pysession = PySparkSession()
     pysession.run(f)
 
     z = pysession.run_function('myfunc', [1,2,3], [4,6,8], ['first', 'second', 'third'])
@@ -703,7 +719,9 @@ class SparkSession:
 Let's confirm that we get some useful error info:
 
 ```python
-# test_error.py
+# test_spark.py
+
+# ...
 
 scala_error = """
     val NUM = 1000
@@ -738,7 +756,7 @@ def test_py_error(pysession):
 Here's the outcome:
 
 ```sh
-$py.test -s test_error.py
+$py.test -s test_spark.py:test_scala_error test_spark.py:test_py_error
 
 # results to be coleected
 ```
