@@ -82,12 +82,11 @@ if __name__ == '__main__':
     test_scala()
 ```
 
-When things are set up correctly, the output looks like this:
+When things are set up correctly, the output contains a lot of info about the Spark connection.
+Eventually the printout contains
 
 ```sh
-$ py.test -s test_livy_connection.py
-
-# results to be collected
+output:   {'status': 'ok', 'execution_count': 0, 'data': {'text/plain': 'res0: Int = 2'}}
 ```
 
 Now let's build the utility class `SparkSession`, which accepts either Python or Scala code.
@@ -279,8 +278,17 @@ Let's see it in action:
 ```sh
 $py.test -s test_spark.py:test_scala
 
-# results to be collected
+============================= test session starts ==============================
+platform linux -- Python 3.6.6, pytest-3.8.1, py-1.6.0, pluggy-0.7.1
+rootdir: /home/docker-user/work/src/utils, inifile:
+collected 1 item
+
+test_spark.py .
+
+========================== 1 passed in 24.39 seconds ===========================
 ```
+
+Well, not much to see. It simply passed.
 
 The meat of this utility is to help us use `PySpark`.
 Basic things can be done with an object created by `SparkSession(kind='pyspark')`, like this:
@@ -479,7 +487,31 @@ Here's the outcome:
 ```sh
 $py.test -s test_spark.py:test_py
 
-# results to be collected
+============================= test session starts ==============================
+platform linux -- Python 3.6.6, pytest-3.8.1, py-1.6.0, pluggy-0.7.1
+rootdir: /home/docker-user/work/src/utils, inifile:
+collected 1 item
+
+test_spark.py 
+printing a number:
+3.1212
+
+printing a <class 'pandas.core.frame.DataFrame'>:
+    value
+0  3.1212
+
+printing in Spark session:
+<type 'float'>
+
+<type 'float'>
+DataFrame
+
+printing boolean:
+True
+<class 'bool'>
+.
+
+========================== 1 passed in 48.85 seconds ===========================
 ```
 
 The second thing we want `PySparkSession` to help us with is to submit code that reside in different places. So far we have treated code as a prepared string.
@@ -758,7 +790,30 @@ Here's the outcome:
 ```sh
 $py.test -s test_spark.py:test_scala_error test_spark.py:test_py_error
 
-# results to be coleected
+============================= test session starts ==============================
+platform linux -- Python 3.6.6, pytest-3.8.1, py-1.6.0, pluggy-0.7.1
+rootdir: /home/docker-user/work/src/utils, inifile:
+collected 2 items
+
+test_spark.py utils.spark.SparkSessionError: Spark error while processing submitted code.
+name: Error
+value: <console>:25: error: not found: value abc
+         val count = abc.NUM
+                     ^
+traceback:
+
+.utils.spark.SparkSessionError: PySpark error while processing submitted code.
+name: SyntaxError
+value: EOL while scanning string literal (<stdin>, line 6)
+traceback:
+  File "<stdin>", line 6
+    raise MySparkError('some thing is so wrong!)
+                                               ^
+SyntaxError: EOL while scanning string literal
+
+.
+
+========================== 2 passed in 29.78 seconds ===========================
 ```
 
 Looks good to me.
