@@ -16,7 +16,7 @@ After some research, I figured out one solution. It turned out pretty simple. Fi
 
 
 Step 1
-====
+======
 
 If the host OS is Mac, do this:
 
@@ -67,7 +67,7 @@ iface lo:0 inet static
 ```
 
 Step 2
-====
+======
 
 Use these options in the `docker run` command that launches container B:
 
