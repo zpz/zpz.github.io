@@ -65,9 +65,12 @@ my-docker/
   |     |-- Dockerfile
   |     |-- build.sh
   |-- build.sh
-  |-- install.sh
-  |-- run-docker.sh
+  |-- run-docker
   |-- common.sh
+  |-- pipeline
+  |-- pyscript
+  |-- auto-build
+  |-- auto-build.sh
 ```
 
 Some explanation of the relations between our images is in order.
@@ -394,25 +397,20 @@ while taking care of any setup about the container that can be automated. Some m
 - Provide support for running pipelines in a production container, such as take care of logging file rotation.
 - Cater to the need of particular commonly-used programs.
 
-The script is named `run-docker.py`. The general pattern of its usage is like this:
+The script is named `run-docker`. The general pattern of its usage is like this:
 
 ```bash
 run-docker [docker-options] image-name command [args]
 ```
 
+The content of `run-docker` is as follows:
 
 ```bash
-# This script uses functions defined in './common.sh',
-# which will be inserted by 'install.sh'.
-#
-# Do not run this script directly.
-# Instead, run 'run-docker' after calling 'install.sh',
-# or use the several specialized commands installed by 'install.sh'.
-#
-# However, if you see a bunch of function definitions above this,
-# you are looking at a version that has './common.sh' appended to
-# './run-docker.sh'. In that case, this script is ready for use.
+#!/usr/bin/env bash
 
+thisfile="${BASH_SOURCE[0]}"
+thisdir="$( cd "$( dirname "${thisfile}" )" && pwd )"
+source "${thisdir}/common.sh"
 
 # set -Eeuo pipefail
 set -o errexit
@@ -423,43 +421,28 @@ set -o pipefail
 # space in the name is not supported.
 # Do not use space in directory and file names in ${HOME}/work and under it.
 
-# : "${abc:?}"     # error if $abc is either undefined or empty
-# : "${abc?}"      # error if $abc is undefined; empty is ok
-# : "${abc:=def}"  # set $abc to 'def' if undefined or empty
-
-: "${HIVE_SERVER_URL:?}"
-: "${POSTGRES_SERVER_URL:?}"
-: "${SLACK_MARSALERTS_WEBHOOK_URL:?}"
-: "${SLACK_MARSINFO_WEBHOOK_URL:?}"
-: "${LIVY_SERVER_URL:?}"
-: "${DASK_SCHEDULER_URL:?}"
-: "${AWS_ACCOUNT_ID:?}"
-: "${AWS_DEFAULT_REGION:?}"
-: "${AWS_DEFAULT_OUTPUT:?}"
-
-set +o errexit
-read -r -d '' USAGE <<'EOF'
+USAGE=$(cat <<'EOF'
 Usage:
    run-docker [--local] image-name [command [...] ]
-   run-docker [--local] image-name pipeline [-v] py-script-name [...]
-   run-docker dask-scheduler
-   run-docker dask-worker
+   run-docker [--local] image-name pipeline py-script-name [...]
+   run-docker [--local] image-name pyscript py-script-name [...]
+
 where 
-`image-name` is like 'mars', 'mars-dev', 'mars-lightly', 'svr-dev', etc.
-`command` is command to be run within the container, followed by arguments to the command.
+
+`image-name` is like 'py3dev', 'infra-dev', 'infra-prod', 'app1-dev', etc.
+
+`command` is the command to be run within the container, followed by arguments to the command.
 (Default: /bin/bash)
+
 `py-script-name`: name of the Python script, including the extension '.py'.
-This script must reside directly under the 'script' folder in the projects repository
-(should not be in sub-directories under 'scripts'). This does not have to be a
-recurrent *pipeline*; it's just a Python script to be run.
+This script must reside directly under the 'script' folder in the project's repository.
+
 `...`: additional arguments for `command` or `py-script-name`.
+
 If `--local` is present, use local image and do not try to pull the latest from AWS.
 All Docker options appear before `image-name`; after `image-name` are command and it arguments.
 EOF
-set -o errexit
-# 'read' returns non-zero; see 
-# https://stackoverflow.com/questions/33281837/bash-read-function-returns-error-code-when-using-new-line-delimiter 
-
+)
 
 imagename=""
 uselocal="no"
@@ -473,25 +456,6 @@ while [[ $# > 0 ]]; do
     if [[ "${imagename}" == "" ]]; then
         if [[ "$1" == '--local' ]]; then
             uselocal="yes"
-        elif [[ "$1" == -v ]]; then
-            shift
-            opts="${opts} -v $1"
-        elif [[ "$1" == -p ]]; then
-            shift
-            opts="${opts} -p $1"
-        elif [[ "$1" == --network ]]; then
-            shift
-            opts="${opts} --network $1"
-        elif [[ "$1" == -* ]]; then
-            opts="${opts} $1"
-        elif [[ "$1" == dask-scheduler ]] || [[ "$1" == dask-worker ]]; then
-            if [[ "${uselocal}" == "yes" ]] || [[ $# > 1 ]] || [[ "${opts}" != "" ]]; then
-                echo "${USAGE}"
-                exit 1
-            fi
-            imagename=mars-nightly
-            command="$1"
-            break
         else
             imagename="$1"
         fi
@@ -521,50 +485,35 @@ else
     echo using latest local image "${imagename}:${imageversion}"
 fi
 
-if [[ "${imagename}" == *-* ]]; then
-    projname="${imagename%%-*}"
-    # Delete longest match of "-*" from back of string.
+projname="${imagename%%-*}"
+# Delete longest match of "-*" from back of string.
 
-    variantname="${imagename#*-}"
-    # Delete shortest match of "*-" from front of string.
-else
-    projname="${imagename}"
-    variantname=""
-fi
+variantname="${imagename#*-}"
+# Delete shortest match of "*-" from front of string.
+# Value is 'dev' or 'prod'.
 
 if [[ "${command}" == "pipeline" ]]; then
     if [[ $# < 1 ]]; then
         echo "${USAGE}"
         exit 1
     fi
-    scriptname=$(set -- $args; if [[ "$1" == '-v' ]]; then echo "$2"; else echo "$1"; fi)
+    scriptname="$1"
 fi
+
 if [[ $(uname) == Linux && $(id -u) != 1000 ]]; then
-    # Gateway Linux box.
-    # Other Linux machines --- not tested.
+    # Linux box.
     uid=$(id -u)
     dockeruser=${uid}
     opts="${opts} -e USER=${dockeruser} -u ${dockeruser}:docker -v /etc/group:/etc/group:ro -v /etc/passwd:/etc/passwd:ro"
 else
     dockeruser='docker-user'
     opts="${opts} -e USER=${dockeruser} -u ${dockeruser}"
-    # Your (a particular user's) AWS keys are picked up from the content of `$HOME/.aws/`.
-    # This directory usually exists on your development machine.
-    # These AWS keys are per person.
-    #
-    # Do not do this on a gateway machine (the branch above).
-    aws_key=$(grep aws_access_key_id ${HOME}/.aws/credentials)
-    aws_key=${aws_key#*= *}
-    aws_secret=$(grep aws_secret_access_key ${HOME}/.aws/credentials)
-    aws_secret=${aws_secret#*= *}
-    opts="${opts} -e AWS_ACCESS_KEY_ID=${aws_key} -e AWS_SECRET_ACCESS_KEY=${aws_secret}"
 fi
-opts="${opts} -e AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID}"
-opts="${opts} -e AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -e AWS_DEFAULT_OUTPUT=${AWS_DEFAULT_OUTPUT}"
 dockerhomedir='/home/docker-user'
 dockerworkdir="${dockerhomedir}/work"
 hostworkdir="${HOME}/work"
 workdir="${dockerworkdir}"
+
 if [[ "${variantname}" == "dev" ]]; then
     SRCDIR="src/${projname}"
     opts="${opts} -v ${hostworkdir}/${SRCDIR}:${dockerworkdir}/${SRCDIR}"
@@ -573,21 +522,13 @@ if [[ "${variantname}" == "dev" ]]; then
     opts="${opts} -e SCRIPTDIR=${dockerworkdir}/src/${projname}/scripts"
     workdir="${dockerworkdir}/${SRCDIR}"
 else
-    opts="${opts} -e SCRIPTDIR=/usr/local/bin/groundtruth/${projname}"
+    opts="${opts} -e SCRIPTDIR=/usr/local/bin/my-org/${projname}"
 fi
+
 if [[ "${command}" == "notebook" ]]; then
     opts="${opts} --expose=8888 -p 8888:8888"
     workdir="${dockerworkdir}/tmp"
     command="jupyter notebook --port=8888 --no-browser --ip=0.0.0.0 --NotebookApp.notebook_dir='${workdir}' --NotebookApp.token=''"
-elif [[ "${command}" == "dask-scheduler" ]]; then
-    opts="${opts} -p 8786-8787:8786-8787 -d --network host -v ${hostworkdir}/data/dask-scheduler:${dockerworkdir}/data/dask-scheduler"
-    args="--port 8786 --bokeh-port 8787 --local-directory ${dockerworkdir}/data/dask-scheduler"
-    mkdir -p ${hostworkdir}/data/dask-scheduler
-elif [[ "${command}" == "dask-worker" ]]; then
-    mkdir -p ${hostworkdir}/data/dask-worker-space
-    opts="${opts} -v ${hostworkdir}/data/dask-worker-space:${dockerworkdir}/data/dask-worker-space -d --network host"
-    args="${DASK_SCHEDULER_URL} --local-directory ${dockerworkdir}/data/dask-worker-space"
-    # ${DASK_SCHEDULER_URL} ends with port ':8786'
 elif [[ "${command}" == "py.test" ]]; then
     args="-p no:cacheprovider ${args}"
 elif [[ "${command}" == "pipeline" ]]; then
@@ -595,6 +536,7 @@ elif [[ "${command}" == "pipeline" ]]; then
 else
     opts="${opts} -it"
 fi
+
 opts="${opts}
 -e HOME=${dockerhomedir}
 --workdir ${workdir}
@@ -602,13 +544,7 @@ opts="${opts}
 -e IMAGE_VERSION=${imageversion}
 -e TZ=America/Los_Angeles
 --rm --init"
-opts="${opts}
--e HIVE_SERVER_URL=${HIVE_SERVER_URL}
--e POSTGRES_SERVER_URL=${POSTGRES_SERVER_URL}
--e SLACK_MARSALERTS_WEBHOOK_URL=${SLACK_MARSALERTS_WEBHOOK_URL}
--e SLACK_MARSINFO_WEBHOOK_URL=${SLACK_MARSINFO_WEBHOOK_URL}
--e LIVY_SERVER_URL=${LIVY_SERVER_URL}
--e DASK_SCHEDULER_URL=${DASK_SCHEDULER_URL}"
+
 LOGDIR=log/"${imagename}"
 if [[ "${command}" == "pipeline" ]]; then
     LOGDIR="${LOGDIR}/${scriptname}"
@@ -616,27 +552,347 @@ fi
 mkdir -p "${hostworkdir}/${LOGDIR}"
 opts="${opts} -v ${hostworkdir}/${LOGDIR}:${dockerworkdir}/${LOGDIR}"
 opts="${opts} -e LOGDIR=${dockerworkdir}/${LOGDIR}"
+
 DATADIR="data/${imagename}"
 mkdir -p "${hostworkdir}/${DATADIR}"
 opts="${opts} -v ${hostworkdir}/${DATADIR}:${dockerworkdir}/${DATADIR}"
 opts="${opts} -e DATADIR=${dockerworkdir}/${DATADIR}"
+
 CFGDIR="config/${imagename}"
 mkdir -p "${hostworkdir}/${CFGDIR}"
 opts="${opts} -v ${hostworkdir}/${CFGDIR}:${dockerworkdir}/${CFGDIR}"
 opts="${opts} -e CFGDIR=${dockerworkdir}/${CFGDIR}"
-NOTIFYDIR="notify/${imagename}"
-mkdir -p "${hostworkdir}/${NOTIFYDIR}"
-opts="${opts} -v ${hostworkdir}/${NOTIFYDIR}:${dockerworkdir}/${NOTIFYDIR}"
-opts="${opts} -e NOTIFYDIR=${dockerworkdir}/${NOTIFYDIR}"
+
 TMPDIR="tmp"
 mkdir -p "${hostworkdir}/${TMPDIR}"
 opts="${opts} -v ${hostworkdir}/${TMPDIR}:${dockerworkdir}/${TMPDIR}"
 opts="${opts} -e TMPDIR=${dockerworkdir}/${TMPDIR}"
-# DEBUG
-if [[ "${command}" == "pipeline" ]]; then
-    notify_slack mars-info 'launching pipeline' "docker run ${imagename}:${imageversion} ${command} ${args}"
-    # This may fail if "${args}" contains double quotes.
-fi
+
 #set -x
 docker run ${opts} ${imagename}:${imageversion} ${command} ${args}
+```
+
+There are quite a few things going on here, and I'm not going to wark through it.
+(It is somewhat simplified from the actual version I use, but all the patterns are here.)
+It will be helpful to know that I assume the project directory structure on the development machine
+follows the [recommendations here](http://zpz.github.io/python-project-tips/#directory-structure).
+
+This script gives special attention to two commands, namely `pipeline` and `pyscript`.
+They are installed in the image `py3dev` as shown in `py3dev/build.sh`.
+I'll talk about them next.
+
+
+The special commands `pipeline` and `pyscript`
+==============================================
+
+Suppose there is a script `app1/scripts/do-something.py`. `pipeline` is a command installed into
+`/usr/local/bin` in image `py3dev`. Its intended use is like this:
+
+```bash
+run-docker app1-prod pipeline do-something.py [...args...]
+```
+
+Typically this is launched as a cron job. Note that `pipeline` is a command residing inside the container,
+on the standard command path, hence this is Docker's standard way of launching a command inside the container
+without first landing on an interactive console in the container. How does `pipeline` find `do-something.py`?
+Well, it assumes the script is in the directory pointed to by `$SCRIPTDIR`, which is set up by `run-docker`.
+The build spec `app1-prod/Dockerfile` make sure to copy (or "install") that script into the correct location.
+In `run-docker`, notice that `$SCRIPTDIR` points to different locations depending on whether the image is
+`*-dev` or `*-prod`.
+
+`pipeline` handles logging and adds some contextual info
+to the log (things like "xxx is starting with arguments ... at 2018-09-28 01:02:03 PST ...").
+
+In contrast, `pyscript` is intended for one-off use. It does not handle logging; any printout of the program
+appears in the console directly. `pyscript` also finds `do-something.py` via `$SCRIPTDIR`.
+It is used in the same way:
+
+```bash
+run-docker app1-prod pyscript do-something.py [...args...]
+```
+
+Below is the script `pipeline`:
+
+```bash
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+USAGE=$(cat <<'EOF'
+This script resides within a Docker image, and calls a Python program
+in `${SCRIPTDIR}`.
+
+Usage:
+    pipeline task [args]
+
+`task` indicates the Python script that is to be run.
+For example, if `task` is `abc.py`, then `${SCRIPTDIR}/abc.py` will be run.
+
+`args` are optional arguments to be passed on to the Python script.
+EOF
+)
+
+if [[ $# < 1 ]]; then
+    echo "${USAGE}"
+    exit 1
+fi
+
+if [[ $# < 1 ]]; then
+    echo "${USAGE}"
+    exit 1
+fi
+
+task="$1"
+shift
+
+: "${SCRIPTDIR:?Environment variable \'SCRIPTDIR\' is not set}"
+: "${LOGDIR:?Environment variable \'LOGDIR\' is not set}"
+: "${DATADIR:?Environment variable \'DATADIR\' is not set}"
+
+: "${IMAGE_NAME:?}"
+: "${IMAGE_VERSION:?}"
+
+
+PYSCRIPT="${SCRIPTDIR}"/${task}
+
+# About logging, please refer to
+#  http://zpz.github.io/log-rotation-of-stdout/
+
+echo | multilog s1000000 n30 "${LOGDIR}"
+echo | multilog s1000000 n30 "${LOGDIR}"
+echo "========================================" | multilog s1000000 n30 "${LOGDIR}"
+date --utc +'%Y-%m-%d %H:%M:%S UTC' | multilog s1000000 n30 "${LOGDIR}"
+echo in Docker image "${IMAGE_NAME}:${IMAGE_VERSION}" | multilog s1000000 n30 "${LOGDIR}"
+echo "$(env)" | multilog s1000000 n30 "${LOGDIR}"
+echo | multilog s1000000 n30 "${LOGDIR}"
+echo starting task \`${task}\` | multilog s1000000 n30 "${LOGDIR}"
+if [[ "${task}" != *.py ]]; then
+    echo Unrecognized script "'${task}'" --- did you forget the extension? | multilog s1000000 n30 "${LOGDIR}"
+    echo Aborting... | multilog s1000000 n30 "${LOGDIR}"
+    exit 1
+fi
+echo python -u ${PYSCRIPT} $@ | multilog s1000000 n30 "${LOGDIR}"
+echo "----------------------------------------" | multilog s1000000 n30 "${LOGDIR}"
+echo | multilog s1000000 n30 "${LOGDIR}"
+
+python -u ${PYSCRIPT} $@ 2>&1 | multilog s1000000 n30 "${LOGDIR}"
+
+echo | multilog s1000000 n30 "${LOGDIR}"
+echo "----------------------------------------" | multilog s1000000 n30 "${LOGDIR}"
+date --utc +'%Y-%m-%d %H:%M:%S UTC' | multilog s1000000 n30 "${LOGDIR}"
+echo task \`${task}\` finished | multilog s1000000 n30 "${LOGDIR}"
+echo "========================================" | multilog s1000000 n30 "${LOGDIR}"
+```
+
+The log rotation tool `multilog` (see [Simple Rotating Log Capture](http://zpz.github.io/log-rotation-of-stdout/))
+is installed in `py3dev/Dockerfile`.
+
+The script `pyscript` is slightly simpler since it does not worry about logging:
+
+```bash
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+USAGE=$(cat <<'EOF'
+This script resides within a Docker image, and calls a Python program
+in `${SCRIPTDIR}`.
+
+Usage:
+    py-script task [args]
+
+`task` indicates the Python script that is to be run.
+For example, if `task` is `abc.py`, then `${SCRIPTDIR}/abc.py` will be run.
+
+`args` are optional arguments to be passed on to the Python script.
+EOF
+)
+
+if [[ $# < 1 ]]; then
+    echo "${USAGE}"
+    exit 1
+fi
+
+
+task="$1"
+shift
+
+: "${SCRIPTDIR:?Environment variable \'SCRIPTDIR\' is not set}"
+
+
+PYSCRIPT="${SCRIPTDIR}"/${task}
+
+if [[ "${task}" != *.py ]]; then
+    echo Unrecognized script "'${task}'" --- did you forget the extension?
+    echo Aborting...
+    exit 1
+fi
+
+python -u ${PYSCRIPT} $@
+```
+
+Below is the segment of `py3dev/Dockerfile` that installs `pipeline` and `pyscript`:
+
+```bash
+COPY pipeline /usr/local/bin/
+RUN chmod +x /usr/local/bin/pipeline
+COPY pyscript /usr/local/bin/
+RUN chmod +x /usr/local/bin/pyscript
+```
+
+In `app1-prod/Dockerfile`, the scripts under `app1/scripts/` are copied into `/usr/local/bin/my-org/app1`,
+as is hinted at in `run-docker`.
+
+
+Auto-build the images
+=====================
+
+Now how to build and use the images is behind us, we can finally turn to **auto** build the images. The main points of the idea are
+
+1. Building images need to use the latest code of the repo `my-docker`. A simple way to do this in a cron job
+   is by downloading the latest code everytime the cron job runs.
+2. Provide a script in `my-docker` that does version checking, image building, and all that.
+3. Provide a more stable, simple script that handles downloading the code of `my-docker`. This script is what is called by cron.
+
+The downloader is simple as the following:
+
+```bash
+#!/usr/bin/env bash
+
+thisfile="${BASH_SOURCE[0]}"
+thisdir="$( cd $( dirname ${thisfile} ) && pwd )"
+
+export GITHUB_ACCESS_TOKEN="fill this out in deployed copy"
+: "${GITHUB_ACCESS_TOKEN:?}"
+
+# Also make sure other environment variables required by `common.sh` are defined,
+# possibly by 'sourcing' in a file containing definition of the variables.
+
+echo
+echo ======================================================
+echo $(date)
+echo fetching the latest of \'my-docker:master\'...
+echo
+
+URL=https://github.com/my-org/my-docker/archive/master.zip
+GIT_TOKEN="Authorization: token ${GITHUB_ACCESS_TOKEN}"
+cd /tmp
+rm -f my-docker.zip
+curl -skL --retry 3 -H "${GIT_TOKEN}" ${URL} -o my-docker.zip
+rm -rf my-docker-master
+unzip my-docker.zip
+
+echo
+echo ----------------------------------------
+echo finished fetching \'my-docker:master\'
+echo starting to build images...
+echo
+
+cd my-docker-master
+bash auto-build.sh
+
+echo
+echo finished building images.
+echo $(date)
+echo -----------------------------------------
+```
+
+The heavy-lifter `auto-build.sh` is listed below.
+
+```bash
+set -Eeuo pipefail
+
+thisfile="${BASH_SOURCE[0]}"
+thisdir="$( cd $( dirname ${thisfile} ) && pwd )"
+source "${thisdir}/common.sh"
+
+: "${GITHUB_ACCESS_TOKEN:?}"
+
+GIT_TOKEN="Authorization: token ${GITHUB_ACCESS_TOKEN}"
+
+
+function find_latest_branch_commit {
+    repo="$1"
+    branch="$2"
+    url="https://api.github.com/repos/my-org/${repo}/git/refs/heads/${branch}"
+    z=$(curl -s -H "${GIT_TOKEN}" ${url})
+    sha=$(grep '"sha": ' <<< "$z")
+    sha=${sha##*\"sha\": \"}
+    sha=${sha%\",}
+    echo "${sha}"
+}
+
+
+function get_commit {
+    repo="$1"
+    sha="$2"
+    url="https://api.github.com/repos/my-org/${repo}/git/commits/${sha}"
+    z=$(curl -s -H "${GIT_TOKEN}" ${url})
+    echo "${z}"
+}
+
+
+function get_latest_branch_commit {
+    repo="$1"
+    branch="$2"
+    get_commit "${repo}" "$(find_latest_branch_commit $repo $branch)"
+}
+
+
+function get_latest_branch_commit_date {
+    z="$(get_latest_branch_commit $@)"
+    z=$(grep "\"date\": \"" <<< "$z" | head -1)
+    z="${z#*\"date\": \"}"
+    z="${z%\"}"    # string formatted like '2018-09-04T23:12:50Z'
+    z="${z//-/}"
+    z="${z//:/}"   # string formatted like '20180904T231250Z'
+    echo "$z"
+}
+
+
+function get_latest_aws_tag_date {
+    z=$(find_aws_latest_tag "$1")    # tag is formmated like '20180904T231250Z'
+    echo "$z"
+}
+
+
+function main {
+    if [[ "$(get_latest_branch_commit_date my-docker master)" > "$(get_latest_aws_tag_date py3dev)" ]]; then
+        echo
+        echo "'my-docker:master' has updated; re-building everything..."
+        echo
+        bash "${thisdir}/build.sh"
+    else
+        if [[ "$(get_latest_branch_commit_date infra develop)" > "$(get_latest_aws_tag_date infra-prod)" ]]; then
+            echo
+            echo "'infra:develop' has updated; re-building most images..."
+            echo
+
+            (cd "${thisdir}"/infra-prod && bash build.sh push)
+
+            repos=( app1 )
+            for repo in "${repos[@]}"; do
+                (cd "${thisdir}"/${repo}-dev && bash build.sh push)
+                (cd "${thisdir}"/${repo}-prod && bash build.sh push)
+            done
+        else
+            repos=( app1 )
+            for repo in "${repos[@]}"; do
+                if [[ "$(get_latest_branch_commit_date ${repo} develop)" > "$(get_latest_aws_tag_date ${repo}-prod)" ]]; then
+                    echo
+                    echo "'${repo}:develop' has updated; re-building '${repo}-prod'"
+                    echo
+                    (cd "${thisdir}/${repo}" && bash build.sh push)
+                fi
+            done
+        fi
+    fi
+    return 0
+}
+
+main
 ```
