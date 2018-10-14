@@ -141,7 +141,7 @@ I took it to the `pybind11` support channel at [gitter](https://gitter.im/pybind
 
 The `string_view` in C++ is a pointer to some contiguous bytes along with the length. It has no idea about string, encoding, or that sort of things. This corresponds to `bytes` in Python, not `str`. In the code block that works, I save `bytes` in `x`, then call `Item(x)`. In this call, the `pybind11` binding code passes a view of the Python `bytes` to C++ without copying. Because `x` lives beyond the subsequent calls to `y.value`, the piece of memory holding `x` value does not change, hence `y.value` is stable.
 
-In the last code block, although `bytes` are used to initiate `Item`, the literal values are temporaries that may be garbage-collected anytime after the call to `Item()`. By the we check `y.value`, chances are `y._value` (on the C++ side) points to some memory (on the Python side) that has been reused for something out of our control. That's why we see garbage, and the garbage changes!
+In the last code block, although `bytes` are used to initiate `Item`, the literal values are temporaries that may be garbage-collected anytime after the call to `Item()`. By the time we check `y.value`, chances are `y._value` (on the C++ side) points to some memory (on the Python side) that has been reused for something out of our control. That's why we see garbage, and the garbage changes!
 
 In the code above the block that works, I save some `str` (not `bytes`) in `x`, and call `Item(x)`. The persistent `x` does not help here---during the call, a `bytes` object is created based on `x`, and a view of the **temporary** `bytes` is passed to C++. Gargabe kicks in again.
 
