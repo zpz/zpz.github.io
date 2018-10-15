@@ -45,7 +45,7 @@ The CTAS statement
 
 The basic form of the supported CTAS statement is like this
 
-```SQL
+```sql
 CREATE table_name
 WITH (
     external_location = 's3://some-location/',
