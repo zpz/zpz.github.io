@@ -260,9 +260,9 @@ class Table:
         tmp_tb = f'{TEMP_DB}.{tmp_tb}'
 
         ppath = self.partition_parth(partition_values)
-        
+
         if len(self.partitions) > len(partition_values):
-            parts = ', '.join([f"'{k}'" for k,v in self.partitions[len(partition_values): ])
+            parts = ', '.join([f"'{k}'" for k,v in self.partitions[len(partition_values): ]])
             parts = f'partitioned_by = ARRAY[{parts}],'
             # Be sure to verify that the last columns in `sql` match these partition fields.
         else:
