@@ -256,7 +256,7 @@ class Table:
     # ...
 
     def insert_overwrite_partition(self, partition_values: List[str], sql: str):
-        tmp_tb = str(random.random()).replace('.', '')
+        tmp_tb = str(random.random()).replace('.', '').replace('-', '')
         tmp_tb = f'{TEMP_DB}.{tmp_tb}'
 
         ppath = self.partition_parth(partition_values)
