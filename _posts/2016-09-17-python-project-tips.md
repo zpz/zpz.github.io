@@ -55,6 +55,14 @@ There are mainly two approaches. The first is to have `tests` subdirectories wit
 After some time using the first approach, I switched to the second. The switch is prompted by some confusing situation related to running tests against the package that has been "installed" into the system `site-packages`. I can think of two other reasons. First, conceptually, "tests" are not the package's intrinsic functionalities. They are supporting the development of the package, just like "doc" is another supporting component. Second, in substantial projects, one may build some utilities to be used by the test code. In the first approach, the location of this testing infrastructure may become awkward.
 
 
+### Update on 2018-11-04
+
+There are discussions about having a `src` directory.
+[This post](https://hynek.me/articles/testing-packaging/) advocates top-level
+directories like `src`, `docs`, `tests`, and a main point for this structure is
+related to testing. Without fully understand the arguments, I tend to like this structure.
+
+
 ## Documentation
 <a name="documentation"></a>
 
