@@ -10,7 +10,7 @@ especially used for binary classification, and cleared up some confusion in my m
 I'll assume the *weak learner* is a tree, which is by far the most common practice.
 In this situation, the algorithm is also called *Boosting Tree*.
 
-## The analogy between Gradient Boosting and Gradient Descent
+# The high-level idea of Gradient Boosting
 
 ### Gradient descent
 
@@ -32,7 +32,7 @@ Take partial derivatives,
 
 $$
 \begin{align*}
-\frac{\partial L}{\partial a_m} &= -\frac{1}{n}\sum_i^n (y_i - a_m - b_m x_i) \\\\
+\frac{\partial L}{\partial a_m} &= -\frac{1}{n}\sum_i^n (y_i - a_m - b_m x_i) \\
 \frac{\partial L}{\partial b_m} &= -\frac{1}{n}\sum_i^n (y_i - a_m - b_m x_i) x_i
 \end{align*}
 $$
@@ -42,7 +42,7 @@ we go in the opposite direction of its derivatives, or gradient:
 
 $$
 \begin{align*}
-a_{m+1} &= a_m - \eta \frac{\partial L}{\partial a_m} \\\\
+a_{m+1} &= a_m - \eta \frac{\partial L}{\partial a_m} \\
 b_{m+1} &= b_m - \eta \frac{\partial L}{\partial b_m}
 \end{align*}
 $$
@@ -114,7 +114,7 @@ $$
 F_m(x_i) \equiv F_0(x_i) + f_1(x_i) + \dots + f_{m}(x_i),\qquad i=1,2,...
 $$
 
-### The analogy
+### The analogy between Gradient Boosting and Gradient Descent
 
 When using gradient descent to estimate some variable,
 in each iteration, we make a change to the variable's value.
@@ -124,8 +124,12 @@ When using gradient boosting to estimate some model,
 in each iteration, we make a change to the model.
 The change is realized by adding an "incremental", usually simple, model to the previous model.
 This incremental model is determined by what $y$ values are used to train it, along with the original $x$.
-In particular, the $y$ values are determined based on the gradient of the loss function
+Specifically, the $y$ values are determined based on the gradient of the loss function
 with respect to the corresponding prediction by the previous model.
+
+Let me try it again.
+Gradient boosting uses gradient descent to iterate over the prediction for each data point, towards a minimal loss function. In each iteration, the desired change to a prediction is determined by the gradient of the loss function with respect to that prediction as of the previous iteration.
+The desired changes to the predictions are realized by adding an incremental model to the model of the previous iteration---this incremental model is trained against the desired changes as $y$, along with the original $x$, so that its predictions will produce, more or less, the desired changes.
 
 
 ### "Fit the residual"
@@ -146,7 +150,7 @@ of the previous model, $F_{m-1}$.
 When the loss $L$ is not mean squared error, the fitting does not need to be against the residuals.
 
 
-## The loss function of a binary classifier
+# The loss function of a binary classifier
 
 Consider a single data point with binary response $y \in (0,1)$.
 Suppose we have a probability prediction $\hat{y} = \mathrm{Prob}(y = 1)$.
@@ -193,23 +197,20 @@ The **cross-entropy loss** is also known as the **log loss** or **deviance**.
 Obviously, this coincides with the metric $L$ derived from a log-likelihood perspective.
 
 
-## The loss function in a binary classification boosting tree
+# The loss function in a binary classification boosting tree
 
-In a binary classifier, one approach is to build a linear model
-
-$$
-\hat{y} = \sum_j \beta_j x_j,\qquad j=0,...,k
-$$
-
+In a binary classifier, one approach is to build an additive (e.g. linear) model
+$
+\hat{y} = f(x)
+$,
 and take the logit of it as a prediction of probability:
 
-$$
+$$\begin{equation}\label{logit}
 \hat{p} = \frac{1}{1 + e^{-\hat{y}}}
+\end{equation}
 $$
 
-Here, $j$ is the feature index, not the observation index.
-Also note that $x_0$ is always 1, corresponding to the bias parameter.
-In fact, the $\hat{y}$ is not a prediction of the binary response $y$;
+In a sense, the $\hat{y}$ here is not trying to predict the binary response $y$;
 these two are not comparable at all. So this notation is a little sloppy, but it will be convenient below.
 
 Now let's consider using GBM for binary classification.
@@ -243,10 +244,10 @@ $$
 substituting $\hat{p}_i = \frac{1}{1 + e^{-\hat{y}_i}}$,
 
 $$
-\begin{align*}
-\log(1 - \hat{p}_i) &= \log \frac{1}{1 + e^{\hat{y}_i}} = -\log(1 + e^{\hat{y}_i}) \\\\
-\log\frac{\hat{p}_i}{1 - \hat{p}_i} &= \log e^{\hat{y}_i} = \hat{y}_i 
-\end{align*}
+\begin{align}
+\log(1 - \hat{p}_i) &= \log \frac{1}{1 + e^{\hat{y}_i}} = -\log(1 + e^{\hat{y}_i}) \\
+\log\frac{\hat{p}_i}{1 - \hat{p}_i} &= \log e^{\hat{y}_i} = \hat{y}_i \label{log-odds}
+\end{align}
 $$
 
 hence
@@ -255,11 +256,220 @@ $$
 L_i = \log(1 + e^{\hat{y}_i}) - y_i \hat{y}_i
 $$
 
-Notice that $\log\frac{\hat{p}_i}{1 - \hat{p}_i}$ is the log odds,
+Notice that $\log\frac{\hat{p}_i}{1 - \hat{p}_i}$ is the log odds (aka logit of $p$),
 hence the loss function is now expressed by the binary response and the log odds.
 
-This loss function is what is used in
-`sklearn.ensemble.gradient_boosting.BinomialDeviance.__call__`.
+Take derivative,
+
+$$
+\begin{equation}\label{boost-gradient}
+\frac{\partial L_i}{\partial \hat{y}_i}
+= \frac{e^{\hat{y}_i}}{1 + e^{\hat{y}_i}} - y_i
+= \hat{p}_i - y_i
+\end{equation}
+$$
+
+
+# Implementation details of gradient boosting classifier in scikit-learn
+
+Let's really understand how this algorithm works as implmented in `scikit-learn`.
+There are many details; we'll focus on a high level around the loss function.
+The main module is [`sklearn.ensemble.gradient_boosting`](https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/ensemble/gradient_boosting.py).
+The module's doc summarizes beautifully:
+
+```python
+"""Gradient Boosted Regression Trees
+
+This module contains methods for fitting gradient boosted regression trees for
+both classification and regression.
+
+The module structure is the following:
+
+- The ``BaseGradientBoosting`` base class implements a common ``fit`` method
+  for all the estimators in the module. Regression and classification
+  only differ in the concrete ``LossFunction`` used.
+
+- ``GradientBoostingClassifier`` implements gradient boosting for
+  classification problems.
+
+- ``GradientBoostingRegressor`` implements gradient boosting for
+  regression problems.
+"""
+```
+
+I'm going to anchor at the class `GradientBoostingClassifier` and understand its initializer (`__init__`) as well as the methods `fit`, `predict_proba`, `predict`.
+Although the code can handle multi-class classification, I will only track down its behavior for binary classification.
+
+Unless otherwise noted, all classes investigated below reside in the module
+`sklearn.ensemble.gradient_boosting`.
+
+### `__init__`
+
+The doc states very clearly,
+
+```python
+class GradientBoostingClassifier(BaseGradientBoosting, ClassifierMixin):
+    """Gradient Boosting for classification.
+
+    GB builds an additive model in a
+    forward stage-wise fashion; it allows for the optimization of
+    arbitrary differentiable loss functions. In each stage ``n_classes_``
+    regression trees are fit on the negative gradient of the
+    binomial or multinomial deviance loss function. Binary classification
+    is a special case where only a single regression tree is induced.
+    """
+```
+
+The following parameters are particularly interesting here:
+
+```python
+    """
+    Parameters
+    ----------
+    loss : {'deviance', 'exponential'}, optional (default='deviance')
+        loss function to be optimized. 'deviance' refers to
+        deviance (= logistic regression) for classification
+        with probabilistic outputs. For loss 'exponential' gradient
+        boosting recovers the AdaBoost algorithm.
+
+    learning_rate : float, optional (default=0.1)
+        learning rate shrinks the contribution of each tree by `learning_rate`.
+        There is a trade-off between learning_rate and n_estimators.
+
+    n_estimators : int (default=100)
+        The number of boosting stages to perform. Gradient boosting
+        is fairly robust to over-fitting so a large number usually
+        results in better performance.
+
+    subsample : float, optional (default=1.0)
+        The fraction of samples to be used for fitting the individual base
+        learners. If smaller than 1.0 this results in Stochastic Gradient
+        Boosting. `subsample` interacts with the parameter `n_estimators`.
+        Choosing `subsample < 1.0` leads to a reduction of variance
+        and an increase in bias.
+
+    criterion : string, optional (default="friedman_mse")
+        The function to measure the quality of a split. Supported criteria
+        are "friedman_mse" for the mean squared error with improvement
+        score by Friedman, "mse" for mean squared error, and "mae" for
+        the mean absolute error. The default value of "friedman_mse" is
+        generally the best as it can provide a better approximation in
+        some cases.
+
+    max_depth : integer, optional (default=3)
+        maximum depth of the individual regression estimators. The maximum
+        depth limits the number of nodes in the tree. Tune this parameter
+        for best performance; the best value depends on the interaction
+        of the input variables.
+
+    max_features : int, float, string or None, optional (default=None)
+        The number of features to consider when looking for the best split:
+
+        - If int, then consider `max_features` features at each split.
+        - If float, then `max_features` is a fraction and
+          `int(max_features * n_features)` features are considered at each
+          split.
+        - If "auto", then `max_features=sqrt(n_features)`.
+        - If "sqrt", then `max_features=sqrt(n_features)`.
+        - If "log2", then `max_features=log2(n_features)`.
+        - If None, then `max_features=n_features`.
+
+        Choosing `max_features < n_features` leads to a reduction of variance
+        and an increase in bias.
+    """
+```
+
+The default loss function is the "deviance". For binary classification,
+this is `BinomialDeviance` (set in `BaseGradientBoosting._check_params`).
+The exact details of the loss function is in `BinomialDeviance.__call__`.
+
+The parameter `subsample` allows Bagging-like behavior but is disabled by default.
+
+The parameter `max_features` allows Random-Forest-like behavior but is disabled by default.
+
+### `fit`
+
+`GradientBoostingClassifier.fit` directly uses the parent
+`BaseGradientBoosting.fit`.
+
+The most important steps (skipping all sanity checks and most non-default or non-binary-class scenarios) are as follows:
+
+1. Set `self.classes_ = [0, 1]` and `self.n_classes_ = 2`.
+
+2. Set `self.loss_ = BinomialDeviance(2)`.
+Unpon this setting, `self.loss_.K` is 1, the number of regression trees to be induced
+(see `LossFunction`).
+
+3. Set `self.init_ = self.loss_.init_estimator()`, which effectively does
+`self.init_ = LogOddsEstimator()`.
+
+4. Fit initial model: `self.init_.fit(X, y)`.
+The effect of this operation is
+`self.init_.prior = np.log(pos / neg)`,
+where `pos` and `neg` are counts of 1's and 0's in `y`, respectively.
+
+5. Make initial predictions: `y_pred = self.init_.predict(X)`.
+The effect of this assignment is that
+`y_pred` is a column vector of the length of `y`, filled with the value of `self.init_.prior`.
+
+6. Start iterations (see `BaseGradientBoosting._fit_stages`).
+The workhorse in `_fit_stages` is `_fit_stage`, which is called once in each iteration,
+taking `X`, `y`, `y_pred`, and returning new `y_pred`, to be used in the next iteration.
+`X` and `y` are the original data, and they do not change in the iterations.
+
+
+### `_fit_stage`
+
+For binary classification, `_fit_stage` fits a `sklearn.tree.DecisionTreeRegressor`;
+most work is delegated to the latter class.
+The fitted tree is appended to the list of "estimators".
+
+The main steps are as follows.
+
+1. Compute `residual = self.loss_.negative_gradient(y, y_pred)`.
+This `residual` turns out to be `y` minus the logit of `y_pred`, hence essentially
+`residual = y - 1./(1. + np.exp(-y_pred))`.
+
+2. Fit a `DecisionTreeRegressor` with `X` as $x$ and `residual` as $y$.
+An interesting parameter passed to `DecisionTreeRegressor` is
+`criterion=self.criterion`, which is `'friedman_mse'` by default.
+This criterion uses mean squared error with Friedman's improvement score
+to assess potential splits (see `sklearn.tree._criterion.FriedmanMSE`).
+
+3. Update tree leaves: `self.loss_.update_terminal_regions`. This does two things:
+
+   1. Determine each leaf's prediction value as this:
+      `np.sum(residual) / np.sum((y - residual) * (1 - y + residual))`.
+      The summation is over data samples that fall in the particular leaf.
+      Because `residual` is $y - \hat{p}$, this leaf value is
+      $\frac{\sum_i (y_i - \hat{p}_i)}{\sum_i \hat{p}_i (1 - \hat{p}_i)}$,
+      where the data point $x_i$ falls in the leaf in question.
+
+   2. Increment `y_pred` of observation $i$ by `self.learning_rate` times the leaf value
+      in which this observation falls. The updated vector `y_pred` is the return value
+      of `_fit_stage`.
+
+Let's understand the two keys here, namely `y_pred` and `residual`.
+
+The initial value of `y_pred` is `np.log(pos / neg)`, which is the global log odds.
+In $(\ref{logit})$, if we take $\hat{p}$ to be 
+$\frac{\mathrm{pos}}{\mathrm{pos} + \mathrm{neg}}$,
+then by $(\ref{log-odds})$,
+$\hat{y} = \log\frac{\hat{p}}{1 - \hat{p}} = \log\frac{\mathrm{pos}}{\mathrm{neg}}$.
+So indeed, the initial `y_pred` is the additive part corresponding to the global fraction of positive responses as the probability. This is a reasonable starting point.
+
+The tree regressor is fitted against `residual`.
+As long as `y_pred` continues to play the role of the additive part in a logistic regression (which is the case at the beginning of the iteration),
+`residual` is $y - \hat{p}$. This is exactly the negative gradient according to
+$(\ref{boost-gradient})$.
+
+
+
+
+### `predict_proba`
+
+### `predict`
+
 
 References:
 
