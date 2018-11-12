@@ -1,21 +1,55 @@
----
-layout: default
----
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{% if page.title %}{{ page.title }} – {% endif %}{{ site.name }} – {{ site.description }}</title>
 
-<article class="post">
-  {% if page.use_math %}
-    {% include mathjax_support.html %}
-  {% endif %}
+    {% include meta.html %}
 
-  <h1>{{ page.title }}</h1>
+    <link rel="stylesheet" type="text/css" href="{{ site.baseurl }}/style.css" />
+    <link rel="alternate" type="application/rss+xml" title="{{ site.name }} - {{ site.description }}" href="{{ site.baseurl }}/feed.xml" />
+  </head>
 
-  <div class="entry">
-    {{ content }}
-  </div>
+  <body>
+    <div class="wrapper-masthead">
+      <div class="container">
+        <header class="masthead clearfix">
+          <a href="{{ site.baseurl }}/" class="site-avatar"><img src="{{ site.avatar }}" /></a>
 
-  <div class="date">
-    Written on {{ page.date | date: "%B %e, %Y" }}
-  </div>
+          <div class="site-info">
+            <h1 class="site-name"><a href="{{ site.baseurl }}/">{{ site.name }}</a></h1>
+            <p class="site-description">{{ site.description }}</p>
+          </div>
 
-  {% include disqus.html %}
-</article>
+          <nav>
+            <a href="{{ site.baseurl }}/blog">Blog</a>
+          </nav>
+
+        </header>
+      </div>
+    </div>
+
+    <div id="main" role="main" class="container">
+
+      <article class="post">
+          {% if page.use_math %}
+            {% include mathjax_support.html %}
+          {% endif %}
+        
+          <h1>{{ page.title }}</h1>
+        
+          <div class="entry">
+            {{ content }}
+          </div>
+        
+          <div class="date">
+            Written on {{ page.date | date: "%B %e, %Y" }}
+          </div>
+        
+          {% include disqus.html %}
+        </article>
+
+    </div>
+
+    {% include analytics.html %}
+  </body>
+</html>
