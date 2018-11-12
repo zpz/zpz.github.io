@@ -1,2 +1,1 @@
 # zpz.github.io
-blog
