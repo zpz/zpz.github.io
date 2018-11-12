@@ -1,18 +1,13 @@
 ---
-layout: default
+layout: home
 ---
 
-<div class="posts">
-  {% for post in site.posts %}
-    <article class="post">
+<h1>Welcome to Zepu's website!</h1>
 
-      <h1><a href="{{ site.baseurl }}{{ post.url }}">{{ post.title }}</a></h1>
+<p>
+Please check out <a href="{{ site.baseurl }}/blog">my blog posts</a>.
+</p>
 
-      <div class="entry">
-        {{ post.excerpt }}
-      </div>
-
-      <a href="{{ site.baseurl }}{{ post.url }}" class="read-more">Read More</a>
-    </article>
-  {% endfor %}
-</div>
+<p>
+I have also compiled a <a href="{{ site.baseurl }}/portfolio">mini technical portfolio</a>.
+</p>
