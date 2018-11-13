@@ -4,8 +4,7 @@ title: Technical Mini-Portfolio
 permalink: /portfolio/
 ---
 
-Here I list a few resources that showcase some of my technical skills,
-which may not be visible without these pointers.
+This page lists some of the more substantial or interesting articles and projects that showcase my technical interest and skills.
 
 # Coding
 
@@ -13,8 +12,8 @@ I'll point to my occasional
 <a href="{{ site.baseurl }}/blog">blog posts</a>.
 There are a few longer pieces there.
 To the right audience, each is an interesting story.
-For example:
-
+I do not have any large software project in the open,
+I've included links to a couple comparatively more interesting items in my <a href="https://github.com/zpz">Github account</a>.
 
 - <a href="{{ site.baseurl }}/speeding-up-python-with-cython-appetizer/">Speeding up Python with Cython: an Appetizer</a>
 shows how I took two lines of regular Python code
@@ -43,9 +42,6 @@ while being able to cross the boundary with ease.
 - <a href="{{ site.baseurl }}/athena-ctas/">"Insert Overwrite Into Table" with Amazon Athena</a>:
 a data engineering utility that enhances the usability and power of Amazon Athena.
 
-I do not have any large software project in the open.
-I'll point to a couple comparatively more interesting items in my Github account:
-
 - <a href="https://github.com/zpz/utilities.cc/blob/master/include/zpz/avro.h">avro.h</a>:
 a C++ utility for navigating in an Apache Avro file,
 making heavy use of an advanced C++ language feature called "variadic template".
@@ -67,17 +63,16 @@ This whole thing is functional but not polished.
 - <a href="{{ site.baseurl }}/gradient-boosting-tree-for-binary-classification/">Understanding Gradient Boosting Tree for Binary Classification</a>: this is an expository piece that might be of interest.
 
 - <a href="https://arxiv.org/abs/1409.2221">Adaptive Anchored Inversion for Gaussian random fields using nonlinear data</a>.
-This is my final academic publication:
+This is my final (and best) academic publication.
 
   It is a computation-intensive statistical method tackling a problem
 that is a longtime fundamental challenge in several disciplines.
 I conceived the approach and developed it over four years' of intense work,
-experiencing three or four overhauls to the methodology,
+undertaking three or four overhauls to the methodology,
 each time lifting it to a new level.
 (Academics do not use the term "invent", but this is just that.)
 I developed several software packages along the way to implement the method.
 Results of example applications are very compelling.
-This is a piece of work I'm proud of.
 
   Some strategies in this work are very familiar and important to Machine Learning, including:
 
