@@ -1,10 +1,13 @@
 ---
 layout: post
 title: Python, C++, Pybind11, and string_view
+excerpt_separator: <!--excerpt-->
+tags: [Python, C++]
 ---
 
 The other day I was using the excellent [pybind11](https://github.com/pybind/pybind11) to bridge some Python code and C++ code.
 The C++ code was performance critical, hence I used `string_view` (standardized in C++17) to avoid copying wherever possible.
+<!--excerpt-->
 While calling this C++ code from Python via `pybind11` bindings, some baffling behaviors were observed related to the use of `string_view`.
 
 The (simplified) C++ code started like this:

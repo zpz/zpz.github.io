@@ -1,12 +1,15 @@
 ---
 layout: post
 title: "Scoping and Visibility of Environment Variables"
+excerpt_separator: <!--excerpt-->
+tags: [bash]
 ---
 
 
 I was considering using environment variables to do some simple
 configuration management. To this end I experimented with ways to set environment variables
 and access them in a (Python) program.
+<!--excerpt-->
 In the following I list some basic observations.
 (Some terminologies may be inaccurate.)
 I use Bash shell.

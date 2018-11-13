@@ -2,10 +2,14 @@
 layout: post
 title: Understanding Gradient Boosting Tree for Binary Classification
 use_math: true
+excerpt_separator: <!--excerpt-->
+tags: [machine-learning, boosting, classification, scikit-learn]
 ---
 
 I did some reading and thinking about Gradient Boosting Machine (GBM),
-especially for binary classification, and cleared up some confusion in my mind. In this post I'll try to explain some of this newly-gained understanding in a way that is as intuitive, clear, and understandable as I can make it.
+especially for binary classification, and cleared up some confusion in my mind.
+<!--excerpt-->
+In this post I'll try to explain some of this newly-gained understanding in a way that is as intuitive, clear, and understandable as I can make it.
 
 I'll assume the *base learner* is a tree, which is by far the most common practice.
 In this situation, the algorithm is also called *Boosting Tree*.

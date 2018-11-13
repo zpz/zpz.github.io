@@ -1,12 +1,15 @@
 ---
 layout: post
 title: Why I Prefer Python to R for Data Work
+excerpt_separator: <!--excerpt-->
+tags: [R, data-science]
 ---
 
 I first encountered S-PLUS (a commercial distribution of S---R's parent) in 2000,
 and used it for statistics coursework for a few years.
 From 2004 through 2011, I used R daily and intensively for implementing my research
 on statistical methodologies.
+<!--excerpt-->
 At its core, R is a decent functional (as opposed to object-oriented) language.
 I have made use of some more "serious" sides of it including
 

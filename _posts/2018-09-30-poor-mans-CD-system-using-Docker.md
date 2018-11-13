@@ -1,9 +1,12 @@
 ---
 layout: post
-title: A "Poor Man's" Continuous Deployment System Using Docker
+title: A Poor Man's Continuous Deployment System Using Docker
+excerpt_separator: <!--excerpt-->
+tags: [docker]
 ---
 
 I've implemented a "continuous deployment" (CD) system centered on Docker.
+<!--excerpt-->
 I have not studied any standard approaches to CD.
 In this "system", automated updates of things are not triggered by events such as code commit,
 but rather by scheduled cron jobs.

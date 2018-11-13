@@ -1,9 +1,13 @@
 ---
 layout: post
 title: Embedding Python in C++, Part 3
+excerpt_separator: <!--excerpt-->
+tags: [Python, C++]
 ---
 
-In this post I will explore passing STL containers to Python in a variety of ways. The focus is to sort out how to pass containers by value and by reference. The `pybind11` documentation is not totally clear to me on this topic, therefore some of the findings below were obtained via trials.
+In this post I will explore passing STL containers to Python in a variety of ways. The focus is to sort out how to pass containers by value and by reference.
+<!--excerpt-->
+The `pybind11` documentation is not totally clear to me on this topic, therefore some of the findings below were obtained via trials.
 
 There are two headers relevant to this topic: `pybind11/stl.h` and `pybind11/stl_bind.h`. `stl.h` is responsible for converting a C++ STL container to a native Python object (such as `list` and `dict`) by copying, whereas `stl_bind.h` is responsible for passing a C++ STL container to Python in a custom class (not the native `list` and `dict`) that provides Pythonic behavior (such as `__getitm__` and `__setitem__`). This custom class "wraps" the C++ STL container and avoids data copying, hence enables "passing by reference" between C++ and Python.
 

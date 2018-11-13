@@ -1,6 +1,7 @@
 ---
 layout: post
 title: On the Bias-Variance Tradeoff
+tags: [machine-learning]
 ---
 
 Yes, we have all seen the nice decomposition formula

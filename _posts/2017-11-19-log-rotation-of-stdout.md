@@ -1,6 +1,7 @@
 ---
 layout: post
 title: "Simple Rotating Log Capture"
+tags: [logging]
 ---
 
 This post concerns simple text-dump logs, not "data logs" that are sent to, say, Kafka for structured treatment.

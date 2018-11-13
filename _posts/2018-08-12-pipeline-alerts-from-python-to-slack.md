@@ -1,10 +1,14 @@
 ---
 layout: post
 title: Sending Pipeline Alerts from Python to Slack
+excerpt_separator: <!--excerpt-->
+tags: [Python, monitoring]
 ---
 
 For recurrent pipelines, it is a common requirement to send notifications,
-or alerts, especially when error occurs. Where to send the notifications?
+or alerts, especially when error occurs.
+<!--excerpt-->
+Where to send the notifications?
 E-mail comes to mind. However, everyone knows e-mail is a *bad* channel
 for error alerts. In addition, sending emails from code is not entirely trivial---one needs to deal with SMTP server, as well as e-mail account and authentication, and stuff.
 

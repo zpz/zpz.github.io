@@ -1,9 +1,13 @@
 ---
 layout: post
 title: "Speeding up Python with Cython: an Appetizer"
+excerpt_separator: <!--excerpt-->
+tags: [Python]
 ---
 
-When evaluating Python for enterprise projects, the concern over its ultimate speed arises from time to time. Of course, fundamental speed-up comes only from a better algorithm or better approach to the problem at hand. However, on the programming language level, Python is indeed lacking in ultimate speed due to many, many hoops in service of its nature as a very high-level and dynamic language.
+When evaluating Python for enterprise projects, the concern over its ultimate speed arises from time to time. 
+<!--excerpt-->
+Of course, fundamental speed-up comes only from a better algorithm or better approach to the problem at hand. However, on the programming language level, Python is indeed lacking in ultimate speed due to many, many hoops in service of its nature as a very high-level and dynamic language.
 
 There are a number of ways to diminish this problem. Three primary ways are
 

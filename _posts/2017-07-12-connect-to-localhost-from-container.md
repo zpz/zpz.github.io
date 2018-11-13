@@ -1,11 +1,14 @@
 ---
 layout: post
 title: "How to Connect to Localhost from within a Docker Container"
+excerpt_separator: <!--excerpt-->
+tags: [Docker]
 ---
 
 I have Docker container A running a server, and container B running a client.
 At least for testing, both containers run on the same machine (host).
 The client software needs to reach out of its own container and then into the server container.
+<!--excerpt-->
 The various inter-container connection mechanisms are not usable, because I don't want to assume that the server is running in a container.
 
 In fact, the "into the server container" part is not a problem, as that is easily taken care of by `port mapping`, i.e. the option `-p` of `docker run`. In other words, if the server is runing natively on the host machine, the issue is about the same, namely, how to connect to the host machine from within a Docker container.

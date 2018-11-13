@@ -1,6 +1,7 @@
 ---
 layout: post
 title: "Overloading `operator==` for a C++ Class Hierarchy"
+tags: [c++]
 ---
 
 Recently I needed to define the equality operator between objects in a class hierarchy. A quick search revealed some discussions on this topic, and the opinion appears to be that this, while certainly doable, does not have a clean, elegant solution.

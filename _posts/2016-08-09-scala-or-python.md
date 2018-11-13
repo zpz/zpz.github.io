@@ -1,12 +1,15 @@
 ---
 layout: post
 title: Should we use Scala or Python?
+excerpt_separator: <!--excerpt-->
+tags: [Python, Scala, data-science]
 ---
 
 Data team,
  
 With the prospect of starting to use `Spark` seriously, people are saying “(it’s time to) learn `Scala`”. 
 I’m very worried about the data team become split between languages like our platform team is. 
+<!--excerpt-->
 I’d like to share some thoughts here on this matter, trying to be brief.
  
 - Any one small project/team can not afford to have two primary languages.

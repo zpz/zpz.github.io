@@ -1,7 +1,11 @@
 ---
 layout: post
 title: Some Coding Tips for Python Projects
+tags: [Python]
 ---
+
+Below are tips on a few very high-level and commonly-encountered topics
+in Python software development.
 
 * [Recommended directory structure for a Python project](#directory-structure)
 * [Documentation](#documentation)

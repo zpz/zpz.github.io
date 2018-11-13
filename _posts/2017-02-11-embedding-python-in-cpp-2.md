@@ -1,6 +1,7 @@
 ---
 layout: post
 title: Embedding Python in C++, Part 2
+tags: [Python, C++]
 ---
 
 In my search for an alternative to raw Python/C API for embedding Python in C++, I had several requirements:

@@ -1,11 +1,14 @@
 ---
 layout: post
 title: '"Insert Overwrite Into Table" with Amazon Athena'
+excerpt_separator: <!--excerpt-->
+tags: [aws, data-engineering]
 ---
 
 For a long time, Amazon Athena does not support `INSERT` or CTAS (`Create Table As Select`) statements.
 To be sure, the results of a query are automatically saved.
 But the saved files are always in CSV format, and in obscure locations.
+<!--excerpt-->
 You want to save the results as an Athena table, or *insert* them into an existing table?
 Either process the auto-saved CSV file, or process the query result in memory,
 in both cases using some engine *other than* Athena, because, well, Athena can't write!

@@ -1,11 +1,14 @@
 ---
 layout: post
 title: Embedding Python in C++, Part 1
+excerpt_separator: <!--excerpt-->
+tags: [Python, C++]
 ---
 
 Python has very good inter-operability with C and C++.
 (In this post I'll just say C++ for simplicity.)
 There are two sides to this "inter-op".
+<!--excerpt-->
 The first is that the main program is in Python;
 certain performance critical parts are coded in C++, or provided by an existing C++ library,
 which is called from the main Python program.

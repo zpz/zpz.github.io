@@ -1,9 +1,13 @@
 ---
 layout: post
 title: Talking to Spark from Python via Livy
+excerpt_separator: <!--excerpt-->
+tags: [spark]
 ---
 
-In order to use [Spark](https://spark.apache.org) in my self-sufficient Docker containers without worrying about access to a Spark client environment (to use `spark-submit`, for example), I found the Apache [Livy](https://livy.incubator.apache.org/) project. Livy provides a REST service for interacting with a Spark cluster. On one hand, Livy is installed (and configured) in a place where it can talk to the Spark server. On the other hand, applications send Spark code as plain text to the Livy server, via regular HTTP mechanisms; no `spark-submit` (or any part of the Spark environment) is needed on this side.
+In order to use [Spark](https://spark.apache.org) in my self-sufficient Docker containers without worrying about access to a Spark client environment (to use `spark-submit`, for example), I found the Apache [Livy](https://livy.incubator.apache.org/) project. Livy provides a REST service for interacting with a Spark cluster.
+<!--excerpt-->
+On one hand, Livy is installed (and configured) in a place where it can talk to the Spark server. On the other hand, applications send Spark code as plain text to the Livy server, via regular HTTP mechanisms; no `spark-submit` (or any part of the Spark environment) is needed on this side.
 
 I wrote a small Python utility module to talk to Livy, sending code to it in a number of natural ways and retrieving result from it.
 
