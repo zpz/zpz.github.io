@@ -17,11 +17,31 @@
 
           <div class="site-info">
             <h1 class="site-name"><a href="{{ site.baseurl }}/">{{ site.name }}</a></h1>
-            <p class="site-description">{{ site.description }}</p>
+            <!-- <p class="site-description">{{ site.description }}</p> -->
+            {% if page.short_title %}
+              <p class="site-description">{{ page.short_title }}</p>
+            {% else %}
+              {% if layout.title %}
+                <p class="site-description">{{ layout.title }}</p>
+              {% endif %}
+            {% endif %}
           </div>
 
           <nav>
-            <a href="{{ site.baseurl }}/">Home</a>
+            {% for nn in layout.topnav %}
+              {% if nn == 'home' %}
+                <a href="{{ site.baseurl }}/">Home</a>
+              {% endif %}
+              {% if nn == 'blog' %}
+                <a href="{{ site.baseurl }}/blog/">Blog</a>
+              {% endif %}
+              {% if nn == 'portfolio' %}
+                <a href="{{ site.baseurl }}/portfolio/">Portfolio</a>
+              {% endif %}
+              {% if nn == 'about' %}
+                <a href="{{ site.baseurl }}/about/">About</a>
+              {% endif %}
+            {% endfor %}
           </nav>
 
         </header>
@@ -30,8 +50,10 @@
 
     <div id="main" role="main" class="container">
       {{ content }}
-    </div>
 
+      <p>&nbsp;</p>
+    </div>
+  
     {% include analytics.html %}
   </body>
 </html>

@@ -1,6 +1,7 @@
 ---
-layout: default
+layout: page
 title: Technical Mini-Portfolio
+short_title: portfolio
 permalink: /portfolio/
 ---
 
