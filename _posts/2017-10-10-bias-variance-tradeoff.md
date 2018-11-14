@@ -2,6 +2,7 @@
 layout: post
 title: On the Bias-Variance Tradeoff
 tags: [machine-learning]
+excerpt_separator: <!--excerpt-->
 ---
 
 Yes, we have all seen the nice decomposition formula
@@ -13,6 +14,7 @@ Yes, we have all seen the nice decomposition formula
 However, I've been puzzled by explanations of the **tradeoff** based on this formula,
 because it's never convincingly clear that the ``mean_squared_error`` and ``irreducible_error``
 terms are **fixed** as we explore different models!
+<!--excerpt-->
 
 Today I think I got the idea, which is, do not try to quantitatively explain
 the tradeoff with this formula. Instead, keep it a little vague and just move on

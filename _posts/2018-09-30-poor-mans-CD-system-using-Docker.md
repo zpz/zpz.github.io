@@ -236,9 +236,13 @@ function find_aws_latest_tag {
 # This assumes all tag names are already sort-able, so
 # this does not get 'latest' by timestamp, rather just by tag.
 function find_latest_tag {
-    docker images "$1" --format "{{.Tag}}" | sort | tail -n 1
+    docker images "$1" --format {% raw %}"{{.Tag}}"{% endraw %} | sort | tail -n 1
 }
 ```
+
+{% comment %}
+The 'raw', 'endraw' stuff is to work around Liquid templating.
+{% endcomment %}
 
 After some experiments, we settled on tagging images by the UTC timestamp of its build time in this format:
 `20180923T082316Z`. This records the full year, month, day, hour, minute, second, in UTC.

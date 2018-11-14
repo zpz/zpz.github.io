@@ -3,7 +3,7 @@
   <head>
     <title>{% if page.title %}{{ page.title }} – {% endif %}{{ site.name }} – {{ site.description }}</title>
 
-    {% include meta.html %}
+    {%- include meta.html -%}
 
     <link rel="stylesheet" type="text/css" href="{{ site.baseurl }}/style.css" />
     <link rel="alternate" type="application/rss+xml" title="{{ site.name }} - {{ site.description }}" href="{{ site.baseurl }}/feed.xml" />
@@ -17,31 +17,23 @@
 
           <div class="site-info">
             <h1 class="site-name"><a href="{{ site.baseurl }}/">{{ site.name }}</a></h1>
-            <!-- <p class="site-description">{{ site.description }}</p> -->
-            {% if page.short_title %}
+            {%- if page.short_title -%}
               <p class="site-description">{{ page.short_title }}</p>
-            {% else %}
-              {% if layout.title %}
+            {%- else -%}
+              {%- if layout.title -%}
                 <p class="site-description">{{ layout.title }}</p>
-              {% endif %}
-            {% endif %}
+              {%- endif -%}
+            {%- endif -%}
           </div>
 
           <nav>
-            {% for nn in layout.topnav %}
-              {% if nn == 'home' %}
+            {%- for nn in layout.topnav -%}
+              {%- if nn == 'home' -%}
                 <a href="{{ site.baseurl }}/">Home</a>
-              {% endif %}
-              {% if nn == 'blog' %}
-                <a href="{{ site.baseurl }}/blog/">Blog</a>
-              {% endif %}
-              {% if nn == 'portfolio' %}
-                <a href="{{ site.baseurl }}/portfolio/">Portfolio</a>
-              {% endif %}
-              {% if nn == 'about' %}
-                <a href="{{ site.baseurl }}/about/">About</a>
-              {% endif %}
-            {% endfor %}
+              {%- else -%}
+                <a href="{{ site.baseurl }}/{{ nn }}/">{{ nn | capitalize }}</a>
+              {%- endif -%}
+            {%- endfor -%}
           </nav>
 
         </header>
@@ -54,6 +46,6 @@
       <p>&nbsp;</p>
     </div>
   
-    {% include analytics.html %}
+    {%- include analytics.html -%}
   </body>
 </html>
