@@ -86,7 +86,7 @@ Then the question is how to train this model, in other words, what's the data an
 The addition of $f_{m+1}$ causes a change to each predicted $\hat{y}\_i$
 by the amount of $f_{m+1}(x_i)$. This in turn changes the value of the loss function.
 This is how $f_{m+1}$ is connected to the loss function,
-and this connection to the key to finding $f_{m+1}$.
+and this connection is the key to finding $f_{m+1}$.
 
 Now I flip the question. 
 Instead of asking how $f_{m+1}$ (however it is determined) changes $\hat{y}_i$ and the loss,
@@ -176,31 +176,35 @@ However, when the loss $L$ is not mean squared error, the training does not need
 Consider a single data point with binary response $y \in \\{0,1\\}$.
 Suppose we have a probability prediction $\hat{p} = \operatorname{prob}(y = 1)$.
 We need to define the loss for this single data point.
+To fix notations,
+we'll use $y$ for the *variable* and
+$y^*$ for the actually observed value.
 
-First, let's consider **log-likelihood**. If $y = 1$, the log-likelihood is $\log\hat{p}$.
-If $y = 0$, the log-likelihood is $\log(1 - \hat{p})$.
+
+First, let's consider **log-likelihood**. If $y^* = 1$, the log-likelihood is $\log\hat{p}$.
+If $y^* = 0$, the log-likelihood is $\log(1 - \hat{p})$.
 If we want to express both cases in one unified formula, the following works:
 
 $$
-y \log\hat{p} + (1-y)\log(1 - \hat{p})
+y^* \log\hat{p} + (1-y^*)\log(1 - \hat{p})
 $$
 
 The loss should be negative (log-)likelihood, so we can use
 
 $$
 \begin{equation}\label{neg-loglikelihood-loss}
-L = -y \log\hat{p} - (1-y)\log(1 - \hat{p})
+L = -y^* \log\hat{p} - (1-y^*)\log(1 - \hat{p})
 \end{equation}
 $$
 
 Next, let's consider **cross-entropy**.
 Consider two probability distributions $Q$ and $P$ over the same underlying set of events. Suppose $Q$ is the true distribution, and $P$ is used to approximate $Q$.
 Roughly speaking, cross-entropy $H(Q,P)$ measures the "distance" in this approximation.
-When $Q$ and $P$ are discrete taking event $y$ in some finite set,
+When $Q$ and $P$ are discrete distributions taking event $y$ in some finite set,
 the cross-entropy is defined by
 
 $$
-H(Q,P) = -\sum_y Q(x) \log P(y)
+H(Q,P) = -\sum_y Q(y) \log P(y)
 $$
 
 This is the negative expected log-likelihood when events happen according to $Q$,
@@ -211,7 +215,7 @@ and reaches a minimum when $Q$ and $P$ are identical.
 This interpretation goes very well with the situation where we use $P$ to *estimate* an unkown distribution $Q$. And for that estimation, $H(Q,P)$ can readily play the role of a loss function.
 
 For a single data point in a binary classification problem, the possible events are $y=0$ and $y=1$.
-If we observe $y=1$, the distribution $Q$ for this single data point is
+If we observe $y^*=1$, the distribution $Q$ for this single data point is
 
 $$
 Q(y) = \begin{cases}
@@ -220,7 +224,7 @@ Q(y) = \begin{cases}
 \end{cases}
 $$
 
-If we observe $y=0$, the distribution $Q$ is
+If we observe $y^*=0$, the distribution $Q$ is
 
 $$
 Q(y) = \begin{cases}
@@ -229,7 +233,16 @@ Q(y) = \begin{cases}
 \end{cases}
 $$
 
-In both cases, our estimate is the distribution
+Both cases can be nicely expressed by one formula:
+
+$$
+Q(y) = \begin{cases}
+1-y^*,\quad & y=0 \\
+y^*,\quad & y=1
+\end{cases}
+$$
+
+On the other hand, our estimate is the distribution
 
 $$
 P(y) = \begin{cases}
@@ -238,11 +251,11 @@ P(y) = \begin{cases}
 \end{cases}
 $$
 
-We see the cross-entropy loss can be calculated as follows, regardless of the observed value of $y$,
+We see the cross-entropy loss can be calculated as follows,
 
 $$
 \begin{equation}\label{cross-entropy-loss}
-H = - y \log \hat{p} - (1-y) \log(1 - \hat{p})
+H = - y^* \log \hat{p} - (1-y^*) \log(1 - \hat{p})
 \end{equation}
 $$
 
