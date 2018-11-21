@@ -183,9 +183,11 @@ The rest is how to estimate them.
 
 `word2vec` designs
 a neural network with an input layer, a single hidden layer, and an output layer.
-The sizes of the three layers are $n$, $k$, and $n$, respectively.
+The hidden layer has $k$ neurons.
+The output layer (effectively) has $n$ neurons.
 In the Skip-Gram architecture,
-the weights between the input and hidden layers are the $\boldsymbol{v}$ vectors (transposed as needed),
+the input layer has $n_f$ channels each of length $n$.
+The weights between the input and hidden layers are the $\boldsymbol{v}$ vectors (transposed as needed),
 whereas
 the weights between the hidden and output layers are the $\boldsymbol{u}$ vectors (transposed as needed).
 After training this network, the $\boldsymbol{v}$ vectors ("input weights") and $\boldsymbol{u}$ vectors ("output weights") are both estimated. One can take either of them as the word embeddings to be used in other applications.
