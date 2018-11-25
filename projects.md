@@ -32,16 +32,16 @@ Some strategies in this work are very familiar and important to Machine Learning
 
 This is a piece of research work that I am proud of.
 I believe it continues to be a significant contribution to the field of its subject matter.
-I try to make the methodology useful, or at least exposed, to others via a web service.
+(However, it has not gained much traction, because I left academia soon after publishing the work.)
+I try to make the methodology useful, or at least visible, to others via a web service.
 The idea is that the modeling code runs behind a web service,
 whereas the user interacts with it through web UI or API calls.
 The web site has some management and demonstration capabilities, including dynamic plots.
+This idea is functional on a proof-of-concept level but not polished.
+Progress is slow due to lack of time.
 
 Example client code resides in the
 <a href="https://github.com/anchored-inversion">Github organization "anchored-inversion"</a>.
-
-This whole thing is functional on a proof-of-concept level but not polished.
-Progress is slow due to lack of time.
 
 
 ## Open-source Coding Projects
