@@ -31,7 +31,7 @@ Some strategies in this work are very familiar and important to Machine Learning
 - loss function
 
 This is a piece of research work that I am proud of.
-I believe it continues to be a significant contribution to the field of its subject matter.
+I believe it continues to be a meaningful contribution to the field of its subject matter.
 (However, it has not gained much traction, because I left academia soon after publishing the work.)
 I try to make the methodology useful, or at least visible, to others via a web service.
 The idea is that the modeling code runs behind a web service,
