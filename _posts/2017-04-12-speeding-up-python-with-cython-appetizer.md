@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Speeding up Python with Cython: an Appetizer"
+title: "Speeding up Python Numerics: an Appetizer with Cython"
 excerpt_separator: <!--excerpt-->
 tags: [Python]
 ---
