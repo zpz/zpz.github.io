@@ -13,7 +13,7 @@ There are two headers relevant to this topic: `pybind11/stl.h` and `pybind11/stl
 
 
 
-# Python testing code
+## Python testing code
 
 The Python code below operations on the objects that are passed in from C++. However, this is pure Python code unaware that it is going to be called from C++. This module resides in package `py4cc`. The package is found on `PYTHONPATH` and is located independently of the C++ code that would call it.
 
@@ -53,7 +53,7 @@ def mapadd(x):
 
 
 
-# Scenario 1: cast a C++ object to a Python object
+## Scenario 1: cast a C++ object to a Python object
 
 I tested two situations. First, explicitly cast a C++ STL container to a Python object, then call the objects Python methods. The code remains in C++; there is no Python packages or modules involved. Second, pass a C++ STL container to a Python function (called in C++ code), then inspect the input argument in the Python code of said function.
 
@@ -182,7 +182,7 @@ Observations:
 
 
 
-# Scenario 2: pass by value
+## Scenario 2: pass by value
 
 I verified that with `#include "pybind11/stl.h"`, passing is by value, as demonstrated below.
 
@@ -273,7 +273,7 @@ Observations:
 
 
 
-# Binding code to enable pass-by-reference
+## Binding code to enable pass-by-reference
 
 In order to pass a C++ STL container to Python "by reference", one needs to "bind" the container type of interest to a certain Python class (define in C++ using `pybind11` machinery), which "wraps" the STL container without data copying, and provides methods expected by Python code.
 
@@ -307,7 +307,7 @@ PYBIND11_PLUGIN(_cc11binds) {
 ```
 
 
-# Scenario 3: pass by reference, but watch out!
+## Scenario 3: pass by reference, but watch out!
 
 The code below demonstrates various combinations of `#include "pybind11/stl.h"` and `#include "pybind11/stl_bind.h"`, with variables passed by name (`x`) or by pointer (`&x`). It often demonstrates the (non)effect of `const` on objects that get passed to Python.
 
@@ -500,7 +500,7 @@ Observations regarding C++ const correctness:
 
 
 
-# Scenario 4: pass-by-reference in named arguments
+## Scenario 4: pass-by-reference in named arguments
 
 
 Code:

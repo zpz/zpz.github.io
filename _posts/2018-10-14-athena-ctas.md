@@ -43,8 +43,7 @@ We will only show what we need to explain the approach, hence the functionalitie
 for serious applications.
 
 
-The CTAS statement
-==================
+## The CTAS statement
 
 The basic form of the supported CTAS statement is like this
 
@@ -67,8 +66,7 @@ in the `SELECT` statement.
 Other details can be found [here](https://docs.aws.amazon.com/athena/latest/ug/create-table-as.html#ctas-table-properties).
 
 
-Utility preparations
-====================
+## Utility preparations
 
 We need to detour a little bit and build a couple utilities.
 The first is a class representing Athena table meta data.
@@ -212,8 +210,7 @@ class S3Bucket:
         return n
 ```
 
-`insert overwrite into table`
-=============================
+## `insert overwrite into table`
 
 Now we are ready to take on the core task: implement "insert overwrite into table" via CTAS.
 

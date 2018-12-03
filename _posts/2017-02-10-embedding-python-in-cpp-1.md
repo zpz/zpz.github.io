@@ -27,8 +27,7 @@ However, most of them either already support "embedding", or could do so with mo
 Recently I needed to do both "extending" and "embedding". I plan to first write about my "embedding" experience in a few articles.
 
 
-Setting the stage
-=================
+## Setting the stage
 
 My main program is a realtime, low-latency, high-throughput, online sevice in C++. In a critical component, it runs some sophisticated modeling or "machine learning" algorithm to make a decision. I decided to develop the model algorithm in Python in order to tap into its excellent data stack and modeling ecosystem. As a result, I needed to build an interface between the Python and C++ codes. To fix ideas, the Python code is listed below.
 
@@ -179,8 +178,7 @@ A few points of note:
 
 
 
-Testing it in Python
-====================
+## Testing it in Python
 
 I wrote a Python program to verify that it works. The test code primarily does the following things:
 
@@ -191,8 +189,7 @@ I wrote a Python program to verify that it works. The test code primarily does t
 The test code is available at [https://github.com/zpz/cppy/tree/master/py4cc/tests](https://github.com/zpz/cppy/tree/master/py4cc/tests). The test program ran with no issues.
 
 
-First attempt at using raw Python/C API
-=======================================
+## First attempt at using raw Python/C API
 
 A natural approach uses Python's C API. The official documentation has a [tutorial](https://docs.python.org/3/extending/index.html) as well as a [reference manual](https://docs.python.org/3/c-api/index.html).
 
@@ -453,8 +450,7 @@ Engine::~Driver()
 ```
 
 
-Testing it in C++
-=================
+## Testing it in C++
 
 The test program for the C++ implementation is analogous to the Python test. An important difference is that the C++ threads need to lock up the code blocks that call `Driver` methods because, unlike Python, C++ threads do execute simultanously on a multi-core machine. If multiple threads access the single Python interpreter at the same time, the program will crash.
 
@@ -462,8 +458,7 @@ The source code is available at
 [https://github.com/zpz/cppy/tree/master/cc4py/test_1.cc](https://github.com/zpz/cppy/tree/master/cc4py/test_1.cc).
 
 
-Looking back and forth
-======================
+## Looking back and forth
 
 Let me emphasize that **the C++ implementation listed above is not complete**; it's just a start. For one thing, there are typically multiple slightly different functions in the API that do the same thing, therefore I expect the implementation can be somewhat cleaner.
 

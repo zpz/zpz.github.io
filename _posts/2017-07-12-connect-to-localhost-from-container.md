@@ -18,8 +18,7 @@ Problem is, the client software can not use `localhost` or `127.0.0.1`; that wil
 After some research, I figured out one solution. It turned out pretty simple. First, give the host machine's loopback interface an alias IP address (different from `127.0.0.1`). The client software in container B can reach the host machine by connecting to this alias IP address directly. Since this IP may be hard to remember, `docker run` has an option for giving it an alias.
 
 
-Step 1
-======
+## Step 1
 
 If the host OS is Mac, do this:
 
@@ -69,8 +68,7 @@ iface lo:0 inet static
     netmask 255.255.255.0
 ```
 
-Step 2
-======
+## Step 2
 
 Use these options in the `docker run` command that launches container B:
 

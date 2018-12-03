@@ -19,8 +19,7 @@ The first approach assumes the existence of a third-party library (which could b
 
 In this post I will showcase the third approach. Specifically, I will speed-tune a very simple function through a number of phases, first within pure Python but ultimately using Cython. The main objective of the post is to demonstrate the ease and potential benefit of Cython to total newbies.
 
-Set it up
-=========
+## Set it up
 
 Below is the function we need to speed up. Given a UNIX timestamp, the function returns the week-day, a number between 1 and 7 inclusive. Suppose in a real-world project we need to call this function a large number of times, and the time spent on this function has proven to be considerable.
 
@@ -162,8 +161,7 @@ Function ` do_them ` took  0.8810409489960875 seconds to finish
 Later we will adapt `test1.py` to time other versions, and will simply rename the script according to the version, e.g. `test2.py`, but will not show the slightly adapted testing code.
 
 
-Make it faster
-==============
+## Make it faster
 
 `version01` is clean and clear. However, when we think hard about the speed, we realize that figuring out the week-day from a timestamp involves quite a few steps of arithmetic. We could improve the speed by doing the time difference from a reference timestamp, for which we know the week-day. This could work because, unlike date, week proceeds strictly regularly.
 
@@ -273,8 +271,7 @@ Function ` do_them ` took  0.5782521039946005 seconds to finish
 A speed-up from 0.88 to 0.58 seconds. Modest but real.
 
 
-And faster
-==========
+## And faster
 
 Make a copy of `version03.py` and call the new file `version04.pyx`. Make no change whatsoever to the actual code. The `pyx` extension indicates it's a Cython source file.
 
@@ -317,8 +314,7 @@ Simply handing `version03` off to Cython without code change has led to a speed-
 In general, one should not expect huge performance gains by simply compiling with Cython. The recommended approach is to stay in pure Python as much as one can, identify speed bottlenecks, turning the bottleneck operations into Cython, and further tune the (short) Cython code.
 
 
-And faster
-==========
+## And faster
 
 Cython is a Python compiler that understands static type declarations and use them to generat C code. The first rule of using Cython is basically the following:
 
@@ -368,8 +364,7 @@ Function ` do_them ` took  0.03563655300240498 seconds to finish
 Execution time was reduced from 0.30 to 0.036 seconds. Nice.
 
 
-And faster
-==========
+## And faster
 
 If a function's return value is a simple C type, it can be beneficial to declare that as well.
 
@@ -394,8 +389,7 @@ Function ` do_them ` took  0.019489386002533138 seconds to finish
 The execution time is further reduced from 0.036 to 0.019 seconds.
 
 
-And faster
-==========
+## And faster
 
 Let's see whether Numpy can help us go further.
 
@@ -505,8 +499,7 @@ Function ` do_them ` took  0.011735767999198288 seconds to finish
 Another significant speed-up, from 0.019 to 0.012 seconds. This speed-up is achieved because a `memoryview` and a Numpy array exposes their data in a contiguous memory block, hence element access of them can be translated to element access into C arrays. Granted, this version is not strictly comparable with the baseline version due to the use of Numpy.
 
 
-And faster
-==========
+## And faster
 
 Besides `version08.c`, which is a C translation of `version08.pyx`, another file `version08.html` was generated for us. This file is useful for diagnostics during development. The content of this file is shown below.
 
@@ -556,8 +549,7 @@ Function ` do_them ` took  0.005960473994491622 seconds to finish
 Speed doubled from 0.012 to 0.006 seconds due to the one-line code addition for a decorator.
 
 
-Use `setup.py` to compile
-=========================
+## Use `setup.py` to compile
 
 We have used `easycython` to compile the Cython source codes. This works fine for simple scenarios. For more complex and precise control, a `setup.py` file is the way to go. For the record, here is the `setup.py` file we can use for our case.
 
@@ -612,8 +604,7 @@ $ python setup.py build_ext --inplace
 ```
 
 
-Line-profile Cython code
-========================
+## Line-profile Cython code
 
 Notice that `setup.py` contains a flag `debug = False`. If it is set to `True`, we can profile the Cython code to deep dive and identify potential bottlenecks. Let's try it.
 
@@ -744,8 +735,7 @@ Line #      Hits         Time  Per Hit   % Time  Line Contents
 The line profiling reveals no clear bottleneck, suggesting that we are probably close to the limit of what we can do. After all, `weekday` is now a simple function in C.
 
 
-Epilogue
-========
+## Epilogue
 
 So, with some basic use of Cython (and a little bit of Numpy), we reduced the execution time of a piece of short, innocent-looking Python code from 0.88 seconds to 0.006 seconds. That's a 147X speed-up. If the baseline version needs 24 hours to run, the optimized version will be done in 10 minutes.
 

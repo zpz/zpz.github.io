@@ -14,7 +14,7 @@ In this post I'll try to explain some of this newly-gained understanding in a wa
 I'll assume the *base learner* is a tree, which is by far the most common practice.
 In this situation, the algorithm is also called *Boosting Tree*.
 
-# The high-level idea of Gradient Boosting
+## The high-level idea of Gradient Boosting
 
 ### Gradient descent
 
@@ -171,7 +171,7 @@ This is why we often see statements like "each subsequent model is trained again
 However, when the loss $L$ is not mean squared error, the training does not need to be against the residuals. The more general statement is that the training is against "the gradient of the loss function wrt the predictions of the previous model".
 
 
-# The loss function for binary classification
+## The loss function for binary classification
 
 Consider a single data point with binary response $y \in \\{0,1\\}$.
 Suppose we have a probability prediction $\hat{p} = \operatorname{prob}(y = 1)$.
@@ -263,7 +263,7 @@ Obviously, the cross-entropy and negative log-likelihood are the same quantity.
 This loss function is also known as the **log loss** or the **deviance**.
 
 
-# The loss function in a Gradient Boosting Tree for binary classification
+## The loss function in a Gradient Boosting Tree for binary classification
 
 For binary classification, a common approach is to build some model
 $
@@ -396,7 +396,7 @@ $$
 This will be useful in a moment.
 
 
-# Gradient Boosting classification in scikit-learn
+## Gradient Boosting classification in scikit-learn
 
 Let's understand how Gradient Boosting classification works in `scikit-learn`.
 There are many details; I'll focus on the high level around the loss function and model iteration.
@@ -653,7 +653,7 @@ In contrast, the training of the trees has to be done sequentially.
 Finally, the logistic function converts $\hat{y}$ to $\hat{p}$, which is returned.
 
 
-## References
+### References
 
 - [Blog post by Terence Parr and Jeremy Howard](https://explained.ai/gradient-boosting/index.html)
 

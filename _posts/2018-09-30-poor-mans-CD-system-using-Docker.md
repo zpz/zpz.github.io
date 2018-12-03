@@ -17,8 +17,7 @@ pipelines, for which a crash in production is not the end of the world.
 There is no doubt that my solution is crude, but it is practical.
 For its purpose, it does a pretty good job.
 
-The setting
-===========
+## The setting
 
 Suppose I and a small team develop back-end data pipelines.
 All of our code is hosted on Github under organization `my-org`.
@@ -45,8 +44,7 @@ There are several goals for this automation system:
    triggered by cron, automatically run in a properly rebuilt image that contain the new code.
 
 
-The `my-docker` repo
-====================
+## The `my-docker` repo
 
 This repo started like this:
 
@@ -94,8 +92,7 @@ is based on `infra-prod`, and volume-maps the source code of `app1` from the loc
 `app1-prod` is based on `app1-dev`. In addition to the dependences installed in `app1-dev`, it contains a read-only copy of the `app1` code.
 
 
-Building the images
-===================
+## Building the images
 
 Let's not worry about auto-build for now.
 Let's use `build.sh` to build all the images.
@@ -197,8 +194,7 @@ The script `app1-prod/build.sh` is identical to `infra-prod/build.sh` except tha
 `parent_name` in the script is defined to be `app1-dev`.
 
 
-Utility functions in `common.sh`
-===============================
+## Utility functions in `common.sh`
 
 Now it's time to demystify the functions defined in `common.sh`.
 
@@ -389,8 +385,7 @@ function build_prod {
 }
 ```
 
-Run Docker containers
-=====================
+## Run Docker containers
 
 Having built the images, let's develop a script to launch Docker containers based on the images,
 while taking care of any setup about the container that can be automated. Some main concerns include:
@@ -589,8 +584,7 @@ They are installed in the image `py3dev` as shown in `py3dev/build.sh`.
 I'll talk about them next.
 
 
-The special commands `pipeline` and `pyscript`
-==============================================
+## The special commands `pipeline` and `pyscript`
 
 Suppose there is a script `app1/scripts/do-something.py`. `pipeline` is a command installed into
 `/usr/local/bin` in image `py3dev`. Its intended use is like this:
@@ -755,8 +749,7 @@ In `app1-prod/Dockerfile`, the scripts under `app1/scripts/` are copied into `/u
 as is hinted at in `run-docker`.
 
 
-Auto-build the images
-=====================
+## Auto-build the images
 
 Now how to build and use the images is behind us, we can finally turn to **auto** build the images. The main points of the idea are
 
