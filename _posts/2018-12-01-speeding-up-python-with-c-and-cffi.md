@@ -603,39 +603,43 @@ This supports my theory of compiler caching to some extent.
 
 I did not dig deeper along this line.
 However, note that compilation overhead should be roughly constant (and small).
-As the input size of the function increases, the compilation overhead should become less and less significant compared to the "real" computation. Let's verify this hypothesis.
+As the input size of the function increases, the compilation overhead should become less and less significant compared to the "real" computation.
 
-After removing the profiling code, run the program with larger input data sizes:
+For the purpose of timing the function `weekdays`, I added this line before the timing code
 
 ```
-docker-user@py3x in ~/work/src/py-extensions/tests/pyx/datex [develop]
+_ = c.version01.weekdays(np.array([1,2,3,4]))
+```
+
+to "warm it up".
+
+Then remove the profiling code, and run the program with larger input data sizes:
+
+```
 $ python test_1.py --n 1000000
-pyx.datex.version01.weekdays              :    0.5086 seconds
-pyx.datex.version03.weekdays              :    1.6428 seconds
-datex.cy._version09.weekdays              :    0.0036 seconds
-pyx.datex.c.version01.weekdays            :    0.0230 seconds
-pyx.datex.c.version01.weekdays            :    0.0072 seconds
+pyx.datex.version01.weekdays              :    0.5477 seconds
+pyx.datex.version03.weekdays              :    1.7806 seconds
+datex.cy._version09.weekdays              :    0.0042 seconds
+pyx.datex.c.version01.weekdays            :    0.0061 seconds
 
 docker-user@py3x in ~/work/src/py-extensions/tests/pyx/datex [develop]
 $ python test_1.py --n 10000000
-pyx.datex.version01.weekdays              :    5.0363 seconds
-pyx.datex.version03.weekdays              :   16.1419 seconds
-datex.cy._version09.weekdays              :    0.0566 seconds
-pyx.datex.c.version01.weekdays            :    0.0876 seconds
-pyx.datex.c.version01.weekdays            :    0.0724 seconds
+pyx.datex.version01.weekdays              :    5.5080 seconds
+pyx.datex.version03.weekdays              :   18.0634 seconds
+datex.cy._version09.weekdays              :    0.0569 seconds
+pyx.datex.c.version01.weekdays            :    0.0679 seconds
 
 docker-user@py3x in ~/work/src/py-extensions/tests/pyx/datex [develop]
 $ python test_1.py --n 100000000
-pyx.datex.version01.weekdays              :   51.4120 seconds
-pyx.datex.version03.weekdays              :  162.4034 seconds
-datex.cy._version09.weekdays              :    0.5674 seconds
-pyx.datex.c.version01.weekdays            :    0.6721 seconds
-pyx.datex.c.version01.weekdays            :    0.6564 seconds
+pyx.datex.version01.weekdays              :   54.6860 seconds
+pyx.datex.version03.weekdays              :  175.0819 seconds
+datex.cy._version09.weekdays              :    0.5647 seconds
+pyx.datex.c.version01.weekdays            :    0.6544 seconds
 
+docker-user@py3x in ~/work/src/py-extensions/tests/pyx/datex [develop]
 $ python test_1.py --n 100000000 --repeat 10
-datex.cy._version09.weekdays              :    5.8299 seconds
-pyx.datex.c.version01.weekdays            :    6.7409 seconds
-pyx.datex.c.version01.weekdays            :    6.7134 seconds
+datex.cy._version09.weekdays              :    5.8193 seconds
+pyx.datex.c.version01.weekdays            :    6.6898 seconds
 ```
 
 According to this benchmark, the C/`cffi` solution is about 15% slower than the Cython solution.
