@@ -454,8 +454,8 @@ Engine::~Driver()
 
 The test program for the C++ implementation is analogous to the Python test. An important difference is that the C++ threads need to lock up the code blocks that call `Driver` methods because, unlike Python, C++ threads do execute simultanously on a multi-core machine. If multiple threads access the single Python interpreter at the same time, the program will crash.
 
-The source code is available at
-[https://github.com/zpz/cppy/tree/master/cc4py/test_1.cc](https://github.com/zpz/cppy/tree/master/cc4py/test_1.cc).
+<!-- The source code is available at
+[https://github.com/zpz/cppy/tree/master/cc4py/test_1.cc](https://github.com/zpz/cppy/tree/master/cc4py/test_1.cc). -->
 
 
 ## Looking back and forth
