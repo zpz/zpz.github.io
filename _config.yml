@@ -25,7 +25,7 @@ footer-links:
   flickr:
   github: zpz
   instagram:
-  linkedin: zhangzepu
+  linkedin: zpz
   pinterest:
   rss: # just type anything here for a working RSS icon
   twitter: ZepuZhang
@@ -55,7 +55,7 @@ baseurl: ""
 # !! You don't need to change any of the configuration flags below !!
 #
 
-permalink: /:title/
+# permalink: /:title/
 # Switch this on after some time:
 # permalink: /blog/:title/
 
