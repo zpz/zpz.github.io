@@ -59,7 +59,8 @@ including
 I chose the `multilog` in `daemontools` because this is a package (called `daemontools`) that is
 `apt-get` installable on `debian`.
 
-If your program is in Python, I had some [tips on Python logging here](https://zpz.github.io/python-project-tips/#logging)
+If your program is in Python, I had some 
+[tips on Python logging here]({{ site.baseurl }}/blog/python-project-tips/#logging)
 that will work well with such `stdout` capturing.
 
 If you want to observe the terminal printout as well as capture it in files, you may be tempted to use

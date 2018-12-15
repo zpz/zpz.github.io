@@ -26,11 +26,13 @@ I did find explicit mentions to "embedding" using [cffi](http://cffi.readthedocs
 The [documentation for PyCXX](http://cxx.sourceforge.net/PyCXX-Python3.html) is clean and to the point. I found such section titles (and content) as ["We avoid programming with Python object pointers"](http://cxx.sourceforge.net/PyCXX-Python3.html#h2_no_pointers) and ["The basic concept is to wrap Python pointers"](http://cxx.sourceforge.net/PyCXX-Python3.html#h2_basic_concepts) enlightening. Unfortunately, I decided to skip this tool without actually trying it, for reasons in its model of development and distribution. The code is distributed on [`sourceforge.net`](http://cxx.sourceforge.net/) as a tar-ball. It appears to have a sole maintainer and developer. The revision history indicates it's being steadily maintained and developped. Beyond that, I did not get to see a list of issues, frequency of commits, level of traction, plan for future development, and so on. These are unfortunate reasons for skipping a capable tool, and it seems to be one.
 
 So I ended up trying `pybind11`. This is a successor to `boost.python`. The codebase is substantial, development activity is high, level of interest is good (1771 stars on `github` as of today). The [list of features](https://github.com/pybind/pybind11/blob/master/README.md)
-are **very** impressive. The documentation put a lot of emphasis on "object-oriented code", such as defining a class in C++, and inheriting it in Python, and things even fancier than that. This did feel overkill for my need at the moment and taste in general. As can be seen in [part 1](http://zpz.github.io/embedding-python-in-cpp-1/) (class `Driver` to be specific), I preferred to have a rather clean separation of the Python and C++ codes, with a small API in between. But my idea could change if I ended up learning and using this tool a lot.
+are **very** impressive. The documentation put a lot of emphasis on "object-oriented code", such as defining a class in C++, and inheriting it in Python, and things even fancier than that. This did feel overkill for my need at the moment and taste in general. As can be seen in 
+[part 1]({{ site.baseurl }}/blog/embedding-python-in-cpp-1/) (class `Driver` to be specific), I preferred to have a rather clean separation of the Python and C++ codes, with a small API in between. But my idea could change if I ended up learning and using this tool a lot.
 
 The [documentation](http://pybind11.readthedocs.io/en/master/) is serious but still incomplete. It took some imagination and trials to fill the gaps. I managed to make it work for me.
 
-The C++ header file is identical to the first version in [part 1](http://zpz.github.io/embedding-python-in-cpp-1/) except for two lines. One is an extra include
+The C++ header file is identical to the first version in 
+[part 1]({{ site.baseurl }}/blog/embedding-python-in-cpp-1/) except for two lines. One is an extra include
 
 ```cpp
 #include "pybind11/pybind11.h"
@@ -94,7 +96,7 @@ TaskResult Driver::retrieve(const long key)
 
 Here we see tuple items are accessed in the natural way (`z[0]`) instead of `PyTuple_GetItem(z, 0)`, and Python-to-C++ conversion uses the pattern `py_object.cast<target_type>()`.
 
-The complete code is available at [https://github.com/zpz/cppy/tree/master/cc4py/cc4py_2.cc](https://github.com/zpz/cppy/tree/master/cc4py/cc4py_2.cc). Please feel the contrast yourself with the older version at [https://github.com/zpz/cppy/tree/master/cc4py/cc4py_1.cc](https://github.com/zpz/cppy/tree/master/cc4py/cc4py_1.cc).
+<!-- The complete code is available at [https://github.com/zpz/cppy/tree/master/cc4py/cc4py_2.cc](https://github.com/zpz/cppy/tree/master/cc4py/cc4py_2.cc). Please feel the contrast yourself with the older version at [https://github.com/zpz/cppy/tree/master/cc4py/cc4py_1.cc](https://github.com/zpz/cppy/tree/master/cc4py/cc4py_1.cc). -->
 
 In the next post I will explore various ways of passing C++ STL containers to Python.
 

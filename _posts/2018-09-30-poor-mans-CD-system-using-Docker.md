@@ -577,7 +577,8 @@ docker run ${opts} ${imagename}:${imageversion} ${command} ${args}
 There are quite a few things going on here, and I'm not going to wark through it.
 (It is somewhat simplified from the actual version I use, but all the patterns are here.)
 It will be helpful to know that I assume the project directory structure on the development machine
-follows the [recommendations here](http://zpz.github.io/python-project-tips/#directory-structure).
+follows the 
+[recommendations here]({{ site.baseurl }}/blog/python-project-tips/#directory-structure).
 
 This script gives special attention to two commands, namely `pipeline` and `pyscript`.
 They are installed in the image `py3dev` as shown in `py3dev/build.sh`.
@@ -658,9 +659,6 @@ shift
 
 PYSCRIPT="${SCRIPTDIR}"/${task}
 
-# About logging, please refer to
-#  http://zpz.github.io/log-rotation-of-stdout/
-
 echo | multilog s1000000 n30 "${LOGDIR}"
 echo | multilog s1000000 n30 "${LOGDIR}"
 echo "========================================" | multilog s1000000 n30 "${LOGDIR}"
@@ -687,7 +685,8 @@ echo task \`${task}\` finished | multilog s1000000 n30 "${LOGDIR}"
 echo "========================================" | multilog s1000000 n30 "${LOGDIR}"
 ```
 
-The log rotation tool `multilog` (see [Simple Rotating Log Capture](http://zpz.github.io/log-rotation-of-stdout/))
+The log rotation tool `multilog` (see 
+[Simple Rotating Log Capture]({{ site.baseurl }}/blog/log-rotation-of-stdout/))
 is installed in `py3dev/Dockerfile`.
 
 The script `pyscript` is slightly simpler since it does not worry about logging:
