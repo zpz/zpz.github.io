@@ -33,7 +33,7 @@ The problem is to calculate the day of week given a UNIX timestamp.
 The Python code is simple.
 
 ```python
-# File `src/python/pyx/datex/version01.py`.
+# File `src/python/datex/version01.py`.
 
 from datetime import datetime
 
@@ -53,7 +53,7 @@ I expanded the logic of the "weekday" problem to the point that it now is just a
 
 
 ```python
-# File `src/python/pyx/datex/version03.py`.
+# File `src/python/datex/version03.py`.
 
 def weekday(ts):
     ts0 = 1489363200   # 2017-03-13 0:0:0 UTC, Monday
@@ -81,7 +81,7 @@ def weekdays(ts):
 This version was migrated to Cython, mainly by adding type info:
 
 ```python
-# File `src/python/pyx/datex/cy/_version09.pyx`.
+# File `src/python_ext/datex/cy/_version09.pyx`.
 
 import numpy as np
 cimport numpy as np
@@ -128,16 +128,21 @@ At this point, the files are laid out like this:
 ```
 ├── setup.py
 ├── src
-│   └── python
-│       └── pyx
-│           ├── __init__.py
-│           └── datex
-│               ├── __init__.py
-│               ├── cy
-│               │   ├── __init__.py
-│               │   └── _version09.pyx
-│               ├── version01.py
-│               └── version03.py
+│   ├── python
+│   │   ├── datex
+│   │   │   ├── cy
+│   │   │   │   ├── __init__.py
+│   │   │   ├── __init__.py
+│   │   │   ├── version01.py
+│   │   │   └── version03.py
+│   ├── python_ext
+│   │   └── datex
+│   │       ├── cy
+│   │       │   └── _version09.pyx
+└── tests
+    ├── datex
+    │   ├── __init__.py
+    │   └── test_1.py
 ```
 
 Here is the content of `setup.py`:
@@ -169,7 +174,7 @@ cy_options = {
 cy_extensions = cythonize([
     Extension(
         'datex.cy._version09', 
-        sources=['src/python/pyx/datex/cy/_version09.pyx'],
+        sources=['src/python_ext/datex/cy/_version09.pyx'],
         include_dirs=[numpy_include_dir,],
         define_macros=[('CYTHON_TRACE', '1' if debug else '0')],
         extra_compile_args=['-O3', '-Wall'],
@@ -179,11 +184,10 @@ cy_extensions = cythonize([
     )
 
 setup(
-    name='pyx',
+    name='datex',
     version='0.1.0',
     package_dir={'': 'src/python'},
     packages=find_packages(where='src/python'),
-    ext_package='pyx',
     ext_modules=cy_extensions,
 )
 ```
@@ -206,8 +210,8 @@ import numpy
 
 from zpz.profile import Timer
 
-from pyx.datex import version01, version03
-from pyx.datex import cy
+from datex import version01, version03
+from datex import cy
 
 
 def time_it(fn, timestamps, repeat=1):
@@ -255,9 +259,9 @@ Let's run it to get a performance baseline:
 
 ```
 $ python test_1.py --n 10000000
-pyx.datex.version01.weekdays              :   5.1472 seconds
-pyx.datex.version03.weekdays              :  17.2375 seconds
-datex.cy._version09.weekdays              :   0.0563 seconds
+datex.version01.weekdays              :   5.1472 seconds
+datex.version03.weekdays              :  17.2375 seconds
+datex.cy._version09.weekdays          :   0.0563 seconds
 ```
 
 I don't know why 'version03' is three times slower than 'version01,
@@ -329,7 +333,7 @@ The second part is using the exposed functions via the `cffi` package; this part
 Let's see the first part, which is a simple Python script:
 
 ```python
-# File `pyx.datex.c._version01_build.py`.
+# File `src/python_ext/datex/c/_version01_build.py`.
 
 from cffi import FFI
 
@@ -349,7 +353,7 @@ ffibuilder.set_source(
 # of `setup.py`, which calls this script.
 ```
 
-This file is not a module in the package `pyx`.
+This file is not a module in the package `datex`.
 It contains instructions for building the shared library, and after that it's mission is finished.
 
 Let's walk through this script.
@@ -362,8 +366,7 @@ so we call `FFI.cdef` with the content of the entire header file.
 
 `FFI.set_source` specifies the source code to be compiled into a shared library.
 The first argument specifies the Python module's name for the shared library.
-This module name is under the package name specified by `ext_package` in `setup.py`,
-hence the resultant shared library will be known as module `pyx.datex.c._version01`.
+The resultant shared library will be known as module `datex.c._version01`.
 The second argument is source code we have written to bridge Python and the external C library.
 In the current case, we totally rely on the external library, and no bridging code is needed.
 The other arguments specify source and header files needed to build the shared library.
@@ -379,20 +382,24 @@ At this point, the files are laid out like this:
 │   │   └── datex
 │   │       ├── c_version01.c
 │   │       └── c_version01.h
-│   └── python
-│       └── pyx
-│           ├── __init__.py
-│           └── datex
-│               ├── __init__.py
-│               ├── c
-│               │   ├── __init__.py
-│               │   ├── _version01_build.py
-│               │   └── version01.py
-│               ├── cy
-│               │   ├── __init__.py
-│               │   └── _version09.pyx
-│               ├── version01.py
-│               └── version03.py
+│   ├── python
+│   │   ├── datex
+│   │   │   ├── c
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── version01.py
+│   │   │   ├── cy
+│   │   │   ├── __init__.py
+│   │   │   ├── version01.py
+│   │   │   └── version03.py
+│   ├── python_ext
+│   │   └── datex
+│   │       ├── c
+│   │       │   └── _version01_build.py
+│   │       ├── cy
+└── tests
+    ├── datex
+    │   ├── __init__.py
+    │   └── test_1.py
 ```
 
 The file `setup.py` has been augmented to build the C extension:
@@ -405,32 +412,29 @@ from Cython.Build import cythonize
 import numpy
 from cffi import FFI
 
-# ...
-# Cython business same as above
-# ...
+cy_extensions = ...
 
 cffi_extensions = [
-    'src/python/pyx/datex/c/_version01_build.py:ffibuilder',
+    'src/python_ext/datex/c/_version01_build.py:ffibuilder',
     ]
 
 setup(
-    name='pyx',
+    name='datex',
     version='0.1.0',
     package_dir={'': 'src/python'},
     packages=find_packages(where='src/python'),
-    ext_package='pyx',
     ext_modules=cy_extensions,
     cffi_modules=cffi_extensions,
 )
 ```
 
-Again, build and install the package `pyx` by
+Again, build and install the package `datex` by
 
 ```
 $ pip install --user .
 ```
 
-Now the module `pyx.datex.c._version01` is ready for use,
+Now the module `datex.c._version01` is ready for use,
 and it provides two functions: `weekday` and `weekdays`.
 The function `weekday` takes a `long` and returns a `long`;
 it can be used directly from Python.
@@ -447,7 +451,7 @@ a pointer to the memory block can be passed to the C side, achieving zero-copy i
 Here is the code:
 
 ```python
-# File `src/python/pyx/c/version01.py`.
+# File `src/python/datex/c/version01.py`.
 
 from cffi import FFI
 import numpy as np
@@ -473,17 +477,17 @@ In addition to a direct import and exposure of the function `weekday` in `_versi
 Note that functions in `_version01` are accessed via its member `lib`.
 
 Now we are ready to test it out.
-First, add the function `pyx.datex.c.version0.weekdays` to the testing code:
+First, add the function `datex.c.version01.weekdays` to the testing code:
 
 ```python
-# ......
+...
 
-from pyx.datex import cy, c
+from datex import cy, c
 
-# ......
+...
 
 def do_all(fn, n):
-    # ......
+    ...
 
     functions = [
         (version01.weekdays, timestamps_np),
@@ -492,19 +496,19 @@ def do_all(fn, n):
         (c.version01.weekdays, timestamps_np),
     ]
 
-    # ......
+    ...
 
-# ......
+...
 ```
 
 Then launch the script:
 
 ```
 $ python test_1.py --n 1000000
-pyx.datex.version01.weekdays              :    0.5243 seconds
-pyx.datex.version03.weekdays              :    1.6563 seconds
-datex.cy._version09.weekdays              :    0.0037 seconds
-pyx.datex.c.version01.weekdays            :    0.0226 seconds
+datex.version01.weekdays              :    0.5243 seconds
+datex.version03.weekdays              :    1.6563 seconds
+datex.cy._version09.weekdays          :    0.0037 seconds
+datex.c.version01.weekdays            :    0.0226 seconds
 ```
 
 Ooops! A little disappointing. The C version is seven times slower than the Cython version!
@@ -520,11 +524,11 @@ It is interesting to see that if I rrn the function twice, the second time will 
 
 ```
 $ python test_1.py --n 1000000
-pyx.datex.version01.weekdays              :    0.5053 seconds
-pyx.datex.version03.weekdays              :    1.6358 seconds
-datex.cy._version09.weekdays              :    0.0037 seconds
-pyx.datex.c.version01.weekdays            :    0.0221 seconds
-pyx.datex.c.version01.weekdays            :    0.0057 seconds
+datex.version01.weekdays              :    0.5053 seconds
+datex.version03.weekdays              :    1.6358 seconds
+datex.cy._version09.weekdays          :    0.0037 seconds
+datex.c.version01.weekdays            :    0.0221 seconds
+datex.c.version01.weekdays            :    0.0057 seconds
 ```
 
 To be sure, I tried using different input data and array sizes in the second call than the first,
@@ -536,32 +540,32 @@ This seems to suggest that there is some in-memory caching going on related to c
 To see more details, let's line-profile the function `weekdays`:
 
 ```python
-# File `src/python/pyx/datex/c/version01.py`.
+# File `src/python/datex/c/version01.py`.
 
-# ......
+...
 
 from zpz.profile import lineprofiled
 
-# ......
+...
 
 @lineprofiled()
 def weekdays(ts: np.ndarray) -> np.ndarray:
-    # ......
+    ...
     
-# ......
+...
 ```
 
 Run the script again with two calls to `weekdays`:
 
 ```
 $ python test_1.py --n 1000000
-pyx.datex.version01.weekdays              :    0.5281 seconds
-pyx.datex.version03.weekdays              :    1.6649 seconds
-datex.cy._version09.weekdays              :    0.0041 seconds
+datex.version01.weekdays              :    0.5281 seconds
+datex.version03.weekdays              :    1.6649 seconds
+datex.cy._version09.weekdays          :    0.0041 seconds
 Timer unit: 1e-06 s
 
 Total time: 0.381006 s
-File: /home/docker-user/.local/lib/python3.6/site-packages/pyx/datex/c/version01.py
+File: /home/docker-user/.local/lib/python3.6/site-packages/datex/c/version01.py
 Function: weekdays at line 13
 
 Line #      Hits         Time  Per Hit   % Time  Line Contents
@@ -575,11 +579,11 @@ Line #      Hits         Time  Per Hit   % Time  Line Contents
     19         1       4588.0   4588.0      1.2      lib.weekdays(p_in, p_out, n)
     20         1          2.0      2.0      0.0      return out
 
-pyx.datex.c.version01.weekdays            :    0.3871 seconds
+datex.c.version01.weekdays            :    0.3871 seconds
 Timer unit: 1e-06 s
 
 Total time: 0.005146 s
-File: /home/docker-user/.local/lib/python3.6/site-packages/pyx/datex/c/version01.py
+File: /home/docker-user/.local/lib/python3.6/site-packages/datex/c/version01.py
 Function: weekdays at line 13
 
 Line #      Hits         Time  Per Hit   % Time  Line Contents
@@ -593,7 +597,7 @@ Line #      Hits         Time  Per Hit   % Time  Line Contents
     19         1       4592.0   4592.0     89.2      lib.weekdays(p_in, p_out, n)
     20         1          1.0      1.0      0.0      return out
 
-pyx.datex.c.version01.weekdays            :    0.0062 seconds
+datex.c.version01.weekdays            :    0.0062 seconds
 ```
 
 The profiling shows that in the first call to `weekdays`,
@@ -617,29 +621,29 @@ Then remove the profiling code, and run the program with larger input data sizes
 
 ```
 $ python test_1.py --n 1000000
-pyx.datex.version01.weekdays              :    0.5477 seconds
-pyx.datex.version03.weekdays              :    1.7806 seconds
-datex.cy._version09.weekdays              :    0.0042 seconds
-pyx.datex.c.version01.weekdays            :    0.0061 seconds
+datex.version01.weekdays              :    0.5477 seconds
+datex.version03.weekdays              :    1.7806 seconds
+datex.cy._version09.weekdays          :    0.0042 seconds
+datex.c.version01.weekdays            :    0.0061 seconds
 
-docker-user@py3x in ~/work/src/py-extensions/tests/pyx/datex [develop]
+docker-user@py3x in ~/work/src/py-extensions/tests/datex [develop]
 $ python test_1.py --n 10000000
-pyx.datex.version01.weekdays              :    5.5080 seconds
-pyx.datex.version03.weekdays              :   18.0634 seconds
-datex.cy._version09.weekdays              :    0.0569 seconds
-pyx.datex.c.version01.weekdays            :    0.0679 seconds
+datex.version01.weekdays              :    5.5080 seconds
+datex.version03.weekdays              :   18.0634 seconds
+datex.cy._version09.weekdays          :    0.0569 seconds
+datex.c.version01.weekdays            :    0.0679 seconds
 
-docker-user@py3x in ~/work/src/py-extensions/tests/pyx/datex [develop]
+docker-user@py3x in ~/work/src/py-extensions/tests/datex [develop]
 $ python test_1.py --n 100000000
-pyx.datex.version01.weekdays              :   54.6860 seconds
-pyx.datex.version03.weekdays              :  175.0819 seconds
-datex.cy._version09.weekdays              :    0.5647 seconds
-pyx.datex.c.version01.weekdays            :    0.6544 seconds
+datex.version01.weekdays              :   54.6860 seconds
+datex.version03.weekdays              :  175.0819 seconds
+datex.cy._version09.weekdays          :    0.5647 seconds
+datex.c.version01.weekdays            :    0.6544 seconds
 
-docker-user@py3x in ~/work/src/py-extensions/tests/pyx/datex [develop]
+docker-user@py3x in ~/work/src/py-extensions/tests/datex [develop]
 $ python test_1.py --n 100000000 --repeat 10
-datex.cy._version09.weekdays              :    5.8193 seconds
-pyx.datex.c.version01.weekdays            :    6.6898 seconds
+datex.cy._version09.weekdays          :    5.8193 seconds
+datex.c.version01.weekdays            :    6.6898 seconds
 ```
 
 According to this benchmark, the C/`cffi` solution is about 15% slower than the Cython solution.
