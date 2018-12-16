@@ -5,7 +5,7 @@ excerpt_separator: <!--excerpt-->
 tags: [python]
 ---
 
-In [an appetizer served back in April, 2017]({{ site.baseurl }}/blog/speeding-up-python-with-cython-appetizer/), I demonstrated using `Cython` to achieve 100+ times speed-up to numerical bottlenecks in Python code. I have not used Cython in actual projects since then. Instead, I have had some experiences using `C++` to extend Python. Compared with Cython, which is deeply intertwined with Python, using a separate language to write Python extensions has advantages, such as <!--excerpt-->
+In [an appetizer served back in April, 2017]({{ site.baseurl }}/blog/speeding-up-python-with-cython/), I demonstrated using `Cython` to achieve 100+ times speed-up to numerical bottlenecks in Python code. I have not used Cython in actual projects since then. Instead, I have had some experiences using `C++` to extend Python. Compared with Cython, which is deeply intertwined with Python, using a separate language to write Python extensions has advantages, such as <!--excerpt-->
 
 1. There is no need to learn Cython, which is nevertheless a different language than Python, yet has no value outside of Python projects. On the other hand, a totally separate language
 (if suitable for writing Python extensions) has its own value in non-Python projects.
