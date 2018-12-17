@@ -462,3 +462,6 @@ Pybind11 shines in more complex use cases, notably in
 [object-oriented code](https://pybind11.readthedocs.io/en/master/classes.html).
 This has not been needed in the example of this post.
 However, if you are interested, check out the documentation and give it a spin!
+
+All the code in this post can be found at
+[https://github.com/zpz/experiments.py](https://github.com/zpz/experiments.py).

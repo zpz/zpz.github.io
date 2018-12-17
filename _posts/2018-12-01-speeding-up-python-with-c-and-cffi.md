@@ -649,3 +649,6 @@ datex.c.version01.weekdays            :    6.6898 seconds
 According to this benchmark, the C/`cffi` solution is about 15% slower than the Cython solution.
 I doubt this statement is generalizable.
 I would say the performances of the two solutions are "comparable".
+
+All the code in this post can be found at
+[https://github.com/zpz/experiments.py](https://github.com/zpz/experiments.py).
