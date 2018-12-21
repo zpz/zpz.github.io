@@ -586,6 +586,7 @@ I'll talk about them next.
 
 
 ## The special commands `pipeline` and `pyscript`
+<a name="pipeline-and-pyscript"></a>
 
 Suppose there is a script `app1/scripts/do-something.py`. `pipeline` is a command installed into
 `/usr/local/bin` in image `py3dev`. Its intended use is like this:

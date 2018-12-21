@@ -133,6 +133,8 @@ Do write documentation to help **yourself**, if not others.
 
 ### How to generate documentation using Sphinx
 
+If you go to the length of writing Sphinx documentation, below is my work flow.
+
 1. Basically, let Sphinx take over the `doc` directory in the repo. In `doc/`, run
 
    ```
@@ -177,6 +179,10 @@ Do write documentation to help **yourself**, if not others.
 Prefer logging to `print` in most cases.
 
 - The [twelve factor app](http://12factor.net/logs) advocates treating log events as an event stream, always sending the stream to standard output, and leaving capture of the stream into files to the execution environment.
+
+  For capturing logging into files, see my [other post]({{ site.baseurl }}/blog/log-rotation-of-stdout). A more complete example appears in
+  [another post]({{ site.baseurl}}/blog/poor-mans-CD-system-using-Docker/#pipeline-and-pyscript).
+
 - In all modules that need to do logging, always have this, and only this, at the top of the module:
 
   ```python
