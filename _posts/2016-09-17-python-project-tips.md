@@ -66,6 +66,15 @@ Some highlights:
 
 - `archive` is for any code segments that you have deleted from the "main line" but for some reason still want to keep a visible copy for reference. Do not use a *branch* for this purpose.
 
+The center of gravity of the repo is the Python library (or "package") `becool`.
+Scripts are *applications* of this library, and should strive to be short.
+In the scripts, the package `becool` should be treated just like any third-party library.
+In particular, file-path hacks should be avoided.
+
+If you execute the code in a Docker container like I do,
+all dependencies are taken care of by the definition of the Docker image.
+In that case, `setup.py` does not need to worry about installing dependencies.
+
 ### Where to put tests?
 
 There are mainly two approaches. The first is to have `tests` subdirectories within the package `becool`. Specifically, every directory (includeing the top level `becool`) contains a subdirectory named `tests`, which hosts tests for the modules (i.e. `*.py` files) in its parent directory. The second approach uses a `tests` directory separate from the package being tested. This is the approach shown in the digram above. Both approaches are used by major open source projects.
@@ -85,7 +94,7 @@ I can think of two advantages of this structure:
 
 1. The top-level directories, like `src`, `docs`, `tests`, are more logical and extensible because they are on the same level of abstraction. It feels better.
 
-2. If there are non-Python code, such as Python extensions in C++, this structure can easily grow with the complexity of the codebase. An [experimental package of mine](https://github.com/zpz/experiments.py) is an example.
+2. If there are non-Python code, such as Python extensions in C++, this structure can easily grow with the complexity of the codebase. An [experimental package of mine](https://github.com/zpz/experiments.py) of mine is an example.
 
 ## Naming and style
 <a name="naming"></a>
