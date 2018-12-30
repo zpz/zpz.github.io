@@ -37,13 +37,13 @@ With a brand new Mac laptop, I usually do the following set-up in prep for progr
 
 8. Customize `bash` environment.
 
-   Download [`bashrc`](https://github.com/zpz/docker/blob/master/dotfiles/bash/bashrc) and
-   [`bash_profile`](https://github.com/zpz/docker/blob/master/dotfiles/bash/bash_profile),
+   Download [`bashrc`](https://github.com/zpz/docker/blob/master/py3/dotfiles/bash/bashrc) and
+   [`bash_profile`](https://github.com/zpz/docker/blob/master/py3/dotfiles/bash/bash_profile),
    make them `~/.bashrc` and `~/.bash_profile`, respectively. Adapt as needed.
 
 9. Install and customize `Neovim`.
 
-   Follow instructions [here](https://github.com/zpz/docker/tree/master/dotfiles/nvim).
+   Follow instructions [here](https://github.com/zpz/docker/tree/master/py3/dotfiles/nvim).
 
 10. Install favorite IDE's, such as `PyCharm` or `VS Code` or `IntelliJ IDEA`.
 
