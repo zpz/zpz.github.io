@@ -120,7 +120,7 @@ $ yapf -ir -vv --no-local-style ./
 Do write documentation to help **yourself**, if not others. 
 
 - In-source documentation: make use of Python's docstring mechanism;
-  follow the Google style; [example 1](http://sphinxcontrib-napoleon.readthedocs.org/en/latest/example_google.html), [example 2](http://www.sphinx-doc.org/en/stable/ext/example_google.html#example-google).
+  follow the Google style; [example 1](http://sphinxcontrib-napoleon.readthedocs.org/en/latest/example_google.html), [example 2](https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html).
 - Stand-alone documentation files in source tree (but outside of source code files):
   - `README.md` in the top-level (project root) or second-level (package root) 
     directories.

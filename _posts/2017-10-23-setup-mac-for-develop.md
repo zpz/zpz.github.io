@@ -25,30 +25,27 @@ With a brand new Mac laptop, I usually do the following set-up in prep for progr
 
    Search for "mac homebrew", then follow instructions.
 
-5. `brew install python3`.
+5. `brew install` `python3` and `git` (if not already installed).
 
-6. `brew install git`.
+6. Customize `git`.
 
-   - Then customize `git`, e.g. download [this 'gitconfig'](https://github.com/zpz/linux/blob/master/git/gitconfig) and make it `~/.gitconfig`.
+   Follow instructions [here](https://github.com/zpz/linux/tree/master/git).
 
-7. Install `Docker`.
+7. Install `Docker` (if not already installed).
 
    Go to [docker.io](https://www.docker.io) and follow instructions.
 
 8. Customize `bash` environment.
 
-   Download [`bashrc`](https://github.com/zpz/docker/blob/master/py3/dotfiles/bash/bashrc) and
-   [`bash_profile`](https://github.com/zpz/docker/blob/master/py3/dotfiles/bash/bash_profile),
-   make them `~/.bashrc` and `~/.bash_profile`, respectively. Adapt as needed.
+   Follow instructions [here](https://github.com/zpz/linux/tree/master/bash).
 
 9. Install and customize `Neovim`.
 
-   Follow instructions [here](https://github.com/zpz/docker/tree/master/py3/dotfiles/nvim).
+   Follow instructions [here](https://github.com/zpz/linux/tree/master/neovim).
 
 10. Install favorite IDE's, such as `PyCharm` or `VS Code` or `IntelliJ IDEA`.
 
-11. Create a directory tree for work. I prefer to use the following fixed directory structure
-    to host code work,
+11. Create a directory tree for code work. I prefer to use the following fixed directory structure
 
     ```sh
     cd ~
