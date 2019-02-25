@@ -10,22 +10,20 @@ I just want to suggest a *manageable* list of really good resources.
 <!--excerpt-->
 
 Neither can I be comprehensive. 
-This is just what I know are good or look good to me **for learners**.
+What follows is just what I know are good or look good to me **for learners**.
 
 
 ## Prerequisites
 
-If you are not yet a strong programmer, your code very likely suffers two problems:
+A novice programmer's code often suffers two problems:
 
 1. There is no deliberate distinction between *library* and one-off *scripts*. Most work is (long) scripts.
 
 2. Functions are long. A function grows on and on as you feel the need to do more and more.
 
 The first problem is lack of *modularity* and *reusability*. The second is lack of *decomposition*.
-The former is relatively easy to understand, and can be enforced to some extent.
-The latter is harder.
-I may say that, for a novice programmer, modularity and reusability is hard to do well,
-but decomposition is hard to even start doing.
+While both aspects require a lot of experience to master,
+I feel the latter is hard to even start for a new programmer.
 The two short reads below reinforce this basic idea of decomposition.
 
 - [Decomposition & Style](https://cs.stanford.edu/people/nick/compdocs/Decomposition_and_Style.pdf) (pdf)
@@ -34,9 +32,9 @@ The two short reads below reinforce this basic idea of decomposition.
 - [Improve your code with atomic functions](https://www.codementor.io/seantullis/improve-your-code-with-atomic-functions-r6dt43fy7)
   by Sean Tullis.
 
-If you have learned something by now, then **stop right here, and go work on these problems. There is no point in learning more language features**.
+If you have learned something by now, then **stop right here, turn to your code and work on these problems. There is no point in learning more language features**.
 
-I would suggest you to always remember,
+I also suggest we always remember,
 
 - [Don't live with broken windows](https://www.artima.com/intv/fixit2.html).
   Improve, fix, refactor as you go.
@@ -133,8 +131,12 @@ I would suggest you to always remember,
 
 - [Dan Bader](https://dbader.org/blog/)
 
+- In a previous blog I suggested [Some High-level Tips for Python Projects](http://zpz.github.io/blog/python-project-tips/).
+
 
 ## Specific Topics
+
+- [Write better Python functions](https://jeffknupp.com/blog/2018/10/11/write-better-python-functions/)
 
 - [Google style Python docstrings](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html).
   This is the style I have adopted loosely.
@@ -159,6 +161,7 @@ I would suggest you to always remember,
 
 - and many more...
 
+<br></br>
 
 Finally, I think this reminder is a good one to heed
 
