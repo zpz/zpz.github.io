@@ -67,7 +67,7 @@ I also suggest we always remember,
   by Dan Bader
 
 - [Effective Python](https://www.amazon.com/Effective-Python-Specific-Software-Development/dp/0134034287/ref=pd_bxgy_14_img_3/139-2313814-4715406?_encoding=UTF8&pd_rd_i=0134034287&pd_rd_r=cc0e5595-37cf-11e9-9f14-0518718f1dc0&pd_rd_w=akYTF&pd_rd_wg=A9hOO&pf_rd_p=6725dbd6-9917-451d-beba-16af7874e407&pf_rd_r=GHB0PYNPWGEZ2HTKJRAN&psc=1&refRID=GHB0PYNPWGEZ2HTKJRAN)
-  Brett Slatkin
+  by Brett Slatkin
 
 - [Python Course](https://www.python-course.eu)
   by Bernd Klein. I once read its section on multiple inheritance and got to understand Python's Method Resolution Order (MRO) in that context.
@@ -107,7 +107,11 @@ I also suggest we always remember,
 
 - Some talks by [Venkat Subramaniam](https://www.youtube.com/results?search_query=Venkat+Subramaniam),
   such as [this one](https://www.youtube.com/watch?v=llGgO74uXMI).
-  One great quote from his talk I remember is something like "Do not confuse 'simple' with 'familiar'".
+  One great quote from his talk I remember is something like 
+  
+  > Do not confuse 'simple' with 'familiar'.
+
+  One common scenario is that when I suggest a simpler (usually more elegant, general, and extensible) approach to some code block, the other person resists (or silently chooses to reject) on the ground that the suggested approach is needlessly "hard" or "un-natural" or "complicated". In fact it's none of them; it's *unfamiliar* to her.
 
 - and many more...
 
@@ -120,10 +124,11 @@ I also suggest we always remember,
 - [PyCoder's Weekly](https://pycoders.com).
   Entire archive of past issues are [here](https://pycoders.com/issues).
   It's a good idea to subscribe by email or on Twitter.
-  This one newsletter guarantees you stay up-to-date with Python and keep learning.
+  This one newsletter helps you stay up-to-date with Python and keep learning.
 
 - [Full Stack Python](https://www.fullstackpython.com/table-of-contents.html).
-  A lot of links. It's a curated index of resources with descriptions.
+  A lot of links. It's a curated index of resources with organization and descriptions.
+  More useful after you have learned the basics.
 
 - [Trey Hunner](https://treyhunner.com/blog/archives/)
 
@@ -142,6 +147,7 @@ I also suggest we always remember,
   This is the style I have adopted loosely.
   But, it is *by far* more important to have useful *doc*,
   regardless of the format.
+  I also suggest using *type annotations* in place of some documentation.
 
 - [A Guide to Python's Magic Methods](https://rszalski.github.io/magicmethods/) by Rafe Kettler.
 
