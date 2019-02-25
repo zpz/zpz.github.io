@@ -5,8 +5,8 @@ excerpt_separator: <!--excerpt-->
 tags: [python]
 ---
 
-I do not try to make a comprehensive list.
-I want to suggest a manageable list of really good resources.
+Here I'm not trying to make a comprehensive list.
+I just want to suggest a *manageable* list of really good resources.
 <!--excerpt-->
 
 Neither can I be comprehensive. 
@@ -72,7 +72,7 @@ I would suggest you to always remember,
   Brett Slatkin
 
 - [Python Course](https://www.python-course.eu)
-  by Bernd Klein. I read its section on multiple inheritance and got to understand Python's Method Resolution Order (MRO) in that context.
+  by Bernd Klein. I once read its section on multiple inheritance and got to understand Python's Method Resolution Order (MRO) in that context.
 
 
 
