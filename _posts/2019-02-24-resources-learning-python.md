@@ -174,7 +174,7 @@ I also suggest we always remember,
 
 - and many more...
 
-<br></br>
+<br>
 
 Finally, I think this reminder is a good one to heed
 
