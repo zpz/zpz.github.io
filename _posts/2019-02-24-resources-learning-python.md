@@ -15,7 +15,7 @@ What follows is just what I know are good or look good to me **for learners**.
 
 ## Prerequisites
 
-A novice programmer's code often suffers two problems:
+A novice (or nonprofessional) programmer's code often suffers two problems:
 
 1. There is no deliberate distinction between *library* and one-off *scripts*. Most work is (long) scripts.
 
@@ -23,7 +23,7 @@ A novice programmer's code often suffers two problems:
 
 The first problem is lack of *modularity* and *reusability*. The second is lack of *decomposition*.
 While both aspects require a lot of experience to master,
-I feel the latter is hard to even start for a new programmer.
+I feel the latter is even harder to start for a new programmer.
 The two short reads below reinforce this basic idea of decomposition.
 
 - [Decomposition & Style](https://cs.stanford.edu/people/nick/compdocs/Decomposition_and_Style.pdf) (pdf)
@@ -39,7 +39,7 @@ I also suggest we always remember,
 - [Don't live with broken windows](https://www.artima.com/intv/fixit2.html).
   Improve, fix, refactor as you go.
   Don't think an improvement is not worth doing because it looks "small", or it "works" for now.
-  You won't be making such some improvements again and again.
+  You won't be making the same small improvements again and again.
   The quality of your code tomorrow is on the level of your code today.
   If you improve your code today, the code you write tomorrow will be on the level of your code today---only *the improved version*!---on first writing.
 
@@ -48,8 +48,8 @@ I also suggest we always remember,
 
 - [Clean Code: A Handbook of Agile Software Craftsmanship](https://www.amazon.com/Clean-Code-Handbook-Software-Craftsmanship/dp/0132350882/ref=sr_1_2?keywords=clean+code&qid=1550970855&s=books&sr=1-2)
   by Rober Martin.
-  Going through the TOC of the first few chapters convinced me this classic is a must-read.
-  Since getting a hard copy, I have yet to read it... (sorry!)
+  Just going through the TOC of the first few chapters was enough to convince me that this classic is a must-read.
+  Since getting a hard copy, I have read it... 0 times (sorry!)
 
 - [Fluent Python](https://www.amazon.com/Fluent-Python-Concise-Effective-Programming/dp/1491946008/ref=pd_bxgy_14_img_2/139-2313814-4715406?_encoding=UTF8&pd_rd_i=1491946008&pd_rd_r=b326f27a-37d0-11e9-bebf-15ead0be056d&pd_rd_w=ziIQ5&pd_rd_wg=1W2O5&pf_rd_p=6725dbd6-9917-451d-beba-16af7874e407&pf_rd_r=YRYNS3KGYG3AG1QJCD1E&psc=1&refRID=YRYNS3KGYG3AG1QJCD1E)
   by Luciano Ramalho. This book can be read like an essay---it's not a reference book.
@@ -61,7 +61,10 @@ I also suggest we always remember,
   by Aaron Maxwell
 
 - [Python 201: Intermediate Python](https://www.blog.pythonlibrary.org/buy-the-book/python-201-intermediate-python/)
-  by Michael Driscoll
+  by Michael Driscoll.
+
+  I think learning intermediate-level material is most useful---it is within everyone's capability, is immensely and immediately empowering, yet stops before the return-on-investment diminishes.
+
 
 - [Python Tricks: A Buffet of Awesome Python Features](https://www.amazon.com/Python-Tricks-Buffet-Awesome-Features/dp/1775093301/ref=sr_1_1?keywords=python+tricks&qid=1550970116&s=gateway&sr=8-1)
   by Dan Bader
@@ -70,7 +73,7 @@ I also suggest we always remember,
   by Brett Slatkin
 
 - [Python Course](https://www.python-course.eu)
-  by Bernd Klein. I once read its section on multiple inheritance and got to understand Python's Method Resolution Order (MRO) in that context.
+  by Bernd Klein. I once read its section on multiple inheritance and got to understand Python's Method Resolution Order (MRO) in that context. This made me believe that the site goes to decent depth.
 
 
 
@@ -109,9 +112,11 @@ I also suggest we always remember,
   such as [this one](https://www.youtube.com/watch?v=llGgO74uXMI).
   One great quote from his talk I remember is something like 
   
-  > Do not confuse 'simple' with 'familiar'.
+  > Do not confuse "simple" with "familiar".
 
   One common scenario is that when I suggest a simpler (usually more elegant, general, and extensible) approach to some code block, the other person resists (or silently chooses to reject) on the ground that the suggested approach is needlessly "hard" or "un-natural" or "complicated". In fact it's none of them; it's *unfamiliar* to her.
+
+  "Recursion" comes to mind.
 
 - and many more...
 
@@ -147,7 +152,9 @@ I also suggest we always remember,
   This is the style I have adopted loosely.
   But, it is *by far* more important to have useful *doc*,
   regardless of the format.
+
   I also suggest using *type annotations* in place of some documentation.
+  [Brett Cannon apparently agrees](https://snarky.ca/my-experience-with-type-hints-and-mypy/).
 
 - [A Guide to Python's Magic Methods](https://rszalski.github.io/magicmethods/) by Rafe Kettler.
 
