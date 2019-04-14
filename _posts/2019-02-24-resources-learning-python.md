@@ -65,7 +65,6 @@ I also suggest we always remember,
 
   I think learning intermediate-level material is most useful---it is within everyone's capability, is immensely and immediately empowering, yet stops before the return-on-investment diminishes.
 
-
 - [Python Tricks: A Buffet of Awesome Python Features](https://www.amazon.com/Python-Tricks-Buffet-Awesome-Features/dp/1775093301/ref=sr_1_1?keywords=python+tricks&qid=1550970116&s=gateway&sr=8-1)
   by Dan Bader
 
@@ -75,6 +74,9 @@ I also suggest we always remember,
 - [Python Course](https://www.python-course.eu)
   by Bernd Klein. I once read its section on multiple inheritance and got to understand Python's Method Resolution Order (MRO) in that context. This made me believe that the site goes to decent depth.
 
+- [Python Patterns](https://python-patterns.guide)
+  by Brandon Rhodes.
+
 
 
 ## Guidelines
@@ -82,7 +84,6 @@ I also suggest we always remember,
 - [The Hitchhiker's Guide to Python](https://docs.python-guide.org)
 
 - [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html).
-  I only remember reading the [naming](https://google.github.io/styleguide/pyguide.html#316-naming) section, but I believe the entire guideline is good.
 
 - [PEP 8 -- Style Guide for Python Code](https://www.python.org/dev/peps/pep-0008/)
 
@@ -97,7 +98,7 @@ I also suggest we always remember,
 
 - Many talks by [David Beazley](https://www.youtube.com/results?search_query=david+beazley+python)
   (*advanced* but entertaining), such as [this one](https://www.youtube.com/watch?v=lyDLAutA88s).
-  
+
 - Many talks by [Ned Batchelder](https://www.youtube.com/results?search_query=ned+batchelder+python),
   such as [this one](https://www.youtube.com/watch?v=EnSu9hHGq5o)
   and [this one](https://www.youtube.com/watch?v=FxSsnHeWQBY).
@@ -111,7 +112,7 @@ I also suggest we always remember,
 - Some talks by [Venkat Subramaniam](https://www.youtube.com/results?search_query=Venkat+Subramaniam),
   such as [this one](https://www.youtube.com/watch?v=llGgO74uXMI).
   One great quote from his talk I remember is something like 
-  
+
   > Do not confuse "simple" with "familiar".
 
   One common scenario is that when I suggest a simpler (usually more elegant, general, and extensible) approach to some code block, the other person resists (or silently chooses to reject) on the ground that the suggested approach is needlessly "hard" or "un-natural" or "complicated". In fact it's none of them; it's *unfamiliar* to her.
