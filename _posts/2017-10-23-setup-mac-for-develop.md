@@ -31,21 +31,15 @@ With a brand new Mac laptop, I usually do the following set-up in prep for progr
 
    Follow instructions [here](https://github.com/zpz/linux/tree/master/git).
 
-7. Install `Docker` (if not already installed).
 
-   Go to [docker.io](https://www.docker.io) and follow instructions.
-
-8. Customize `bash` environment.
+7. Customize `bash` environment.
 
    Follow instructions [here](https://github.com/zpz/linux/tree/master/bash).
 
-9. Install and customize `Neovim`.
 
-   Follow instructions [here](https://github.com/zpz/linux/tree/master/neovim).
+8. Install favorite IDE's, such as `VS Code` or `PyCharm` or `IntelliJ IDEA`.
 
-10. Install favorite IDE's, such as `PyCharm` or `VS Code` or `IntelliJ IDEA`.
-
-11. Create a directory tree for code work. I prefer to use the following fixed directory structure
+9. Create a directory tree for code work. I prefer to use the following fixed directory structure
 
     ```sh
     cd ~
@@ -56,4 +50,10 @@ With a brand new Mac laptop, I usually do the following set-up in prep for progr
 
     and remember to add `~/work/bin` to `PATH` in `~/.bashrc`.
 
+10. Install and customize `Neovim` (if you are a `vim` user).
 
+   Follow instructions [here](https://github.com/zpz/linux/tree/master/neovim).
+
+11. Install `Docker` (if not already installed).
+
+   Go to [docker.io](https://www.docker.io) and follow instructions.
