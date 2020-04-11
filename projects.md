@@ -42,3 +42,10 @@ Progress is slow due to lack of time.
 
 Example client code resides in the
 <a href="https://github.com/anchored-inversion">Github organization "anchored-inversion"</a>.
+
+
+## Open-source Coding Projects
+
+I do not have any large software project in the open.
+I have a [github account](https://github.com/zpz/),
+which contains some small experiments and utilities.
