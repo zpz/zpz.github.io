@@ -10,7 +10,7 @@ permalink: /projects/
 ## Adaptive Anchored Inversion
 
 <a href="https://arxiv.org/abs/1409.2221">Adaptive Anchored Inversion for Gaussian random fields using nonlinear data</a>
-is my final (and best) academic publication.
+is my final (and representative) academic publication.
 
 It is a computation-intensive statistical method tackling a problem
 that is a longtime fundamental challenge in several disciplines.
@@ -42,17 +42,3 @@ Progress is slow due to lack of time.
 
 Example client code resides in the
 <a href="https://github.com/anchored-inversion">Github organization "anchored-inversion"</a>.
-
-
-## Open-source Coding Projects
-
-I do not have any large software project in the open.
-Below are a few comparatively more interesting items in my <a href="https://github.com/zpz">Github account</a>.
-
-- <a href="https://github.com/zpz/utilities.cc/blob/master/include/zpz/avro.h">avro.h</a>:
-a C++ utility for navigating in an Apache Avro file,
-making heavy use of an advanced C++ language feature called "variadic template".
-
-- <a href="https://github.com/zpz/datamill">datamill</a>:
-a watered-down Python package for unified feature engineering, with Cython extensions for speed.
-
