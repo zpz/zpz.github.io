@@ -50,8 +50,10 @@ It's useful to highlight that
 - In the main process, the parts before `queue-to-worker` and after `queue-from-worker` are concurrent.
 - The work between `queue-batches` and `queue-to-worker` is sequential.
 - The jobs of the `Batcher` and `Preprocessor` are concurrent. If preprocessing is anything expensive, collection of new requests should continue as one batch is being preprocessed.
-- There must be a mechanism for `Postprocessor` to know which individual results is for which original request, after things have undergone batching.
+- The `Preprocessor` put things in two queues: `queue-to-worker` is consumed by the worker process, whereas `queue-future-results` is consumed by `Postprocessor`.
+- There must be a mechanism for `Postprocessor` to pair each individual result with its corresponding request. The diagram suggests that this is accomplished by `queue-future-results`. The "lollypop symbols" pulled out of the queue turn out to be objects of type `asyncio.Future`. The queue guarantees these `Future` objects come in order consistent with the elements in `queue-batches`, `queue-to-worker` and `queue-from-worker`. In the meantime, each original request also holds a reference of its corresponding `Future` object. We'll come back to this point later.
 
+Now let's code up this design.
 
 
 
