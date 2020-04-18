@@ -78,7 +78,6 @@ kramdown:
     css_class: 'highlight'
 #    block:
 #      line_numbers: true
-highlighter: rouge
 
 # Set the Sass partials directory, as we're using @imports
 sass:
