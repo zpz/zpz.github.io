@@ -69,12 +69,14 @@ kramdown:
   input: GFM
   # Jekyll 3 and GitHub Pages now only support rouge for syntax highlighting
   syntax_highlighter: rouge
-  highlighter: rouge
   syntax_highlighter_opts:
     # Use existing pygments syntax highlighting css
     css_class: 'highlight'
-    block:
-      line_numbers: true
+#    block:
+#      line_numbers: true
+  highlighter: rouge
+  highlighter_opts:
+    css_class: 'highlight'
 
 # Set the Sass partials directory, as we're using @imports
 sass:
