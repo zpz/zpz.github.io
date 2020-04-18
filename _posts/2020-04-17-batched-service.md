@@ -54,25 +54,17 @@ It's useful to highlight that
 - There must be a mechanism for `Postprocessor` to pair each individual result with its corresponding request. The diagram suggests that this is accomplished by `queue-future-results`. The "lollypop symbols" pulled out of the queue turn out to be objects of type `asyncio.Future`. The queue guarantees these `Future` objects come in order consistent with the elements in `queue-batches`, `queue-to-worker` and `queue-from-worker`. In the meantime, each original request also holds a reference of its corresponding `Future` object. We'll come back to this point later.
 
 Now let's code up this design.
+The processsing in the worker process is simple sequential code, so we'll tackle that first.
 
-
+## The worker process
 
 
 ```python
 import asyncio
 import logging
 import multiprocessing as mp
-import threading
-from abc import ABCMeta, abstractmethod
-from typing import List, Type, Dict
-
-from .mp import SubProcessError
-
-
-logger = logging.getLogger(__name__)
-
-NO_MORE_INPUT = 'THERE WILL NO NO MORE INPUT'
-NO_MORE_OUTPUT = 'THERE WILL NO NO MORE OUTPUT'
+from abc import ABCMeta
+from typing import Dict, List, Type
 
 
 class VectorTransformer(metaclass=ABCMeta):
@@ -106,9 +98,6 @@ class VectorTransformer(metaclass=ABCMeta):
         # By default, `trans` is returned w/o change, and `pre` is ignored.
         return trans
 
-    def terminate(self):
-        pass
-
     def run(self, *, q_in: mp.Queue, q_out: mp.Queue):
         cls_name = self.__class__.__name__
 
@@ -117,13 +106,7 @@ class VectorTransformer(metaclass=ABCMeta):
 
         while True:
             x = q_in.get()
-            if x == NO_MORE_INPUT:
-                logger.info(f'{cls_name}: shutting down')
-                self.terminate()
-                return
-
-            if isinstance(x, SubProcessError):
-                logger.info('received SubProcessError from the main process; sending it back right away')
+            if isinstance(x, Exception):
                 w = x
             else:
                 try:
@@ -131,16 +114,30 @@ class VectorTransformer(metaclass=ABCMeta):
                     z = self.transform(y)
                     w = self.postprocess(y, z)
                 except Exception as e:
-                    logger.exception(str(e))
-                    logger.info('sending SubProcessError back to the main process')
-                    w = SubProcessError(e)
+                    w = e
             q_out.put(w)
 
     @classmethod
     def start(cls, *, q_in: mp.Queue, q_out: mp.Queue, init_kwargs: Dict = None):
         transformer = cls(**(init_kwargs or {}))
         transformer.run(q_in=q_in, q_out=q_out)
+```
 
+Note that this class is used in the "worker process", which is started by the "main process" by calling the classmethod `start`. This method takes only simple parameters,
+and it will create an instance of `VectorTransformer` (a subclass of it, to be exact)
+and start an infinite loop of processing by calling `run`.
+
+It's worth noting that we don't want the process to be crashed by exceptions, just in case, so we capture exceptions and send them back just like valid results.
+The input that is obtained from the main process may also be an `Exception`, because there may be preprocessing in the main process that could go wrong. (We'll see shortly.)
+In that case, the `Exception` object is "short-circuited" to the main process, bypassing the computation in the worker process.
+
+## Sketch of the main process
+
+The master control of the `BatchedService` class is a method called `start`,
+which starts the worker process, and creates async tasks to perform preprocessing and postprocessing.
+
+```python
+logger = logging.getLogger(__name__)
 
 class BatchedService:
     def __init__(
@@ -148,8 +145,8 @@ class BatchedService:
         worker_class: Type[VectorTransformer],
         max_batch_size: int,
         *,
-        timeout_seconds: float = None,
-        max_queue_size: int = None,
+        timeout_seconds: float = 0.1,
+        max_queue_size: int = 32,
         worker_init_kwargs: Dict = None,
     ):
         '''
@@ -219,8 +216,13 @@ class BatchedService:
         self._t_postprocessor = None
 
         self._loop = None
+```
 
-    def start(self, loop=None):
+
+```python
+class BatchedService:
+
+    def start(self):
         self._loop = loop or asyncio.get_event_loop()
         logger.info('Starting %s ...', self.__class__.__name__)
 
@@ -241,18 +243,14 @@ class BatchedService:
         self._t_postprocessor = self._loop.create_task(self._run_postprocess())
         logger.info('%s is ready to serve', self.__class__.__name__)
 
-    def stop(self):
-        logger.info('Stopping %s ...', self.__class__.__name__)
-        if not self._t_preprocessor.done():
-            self._t_preprocessor.cancel()
-        if self._p_worker.is_alive():
-            self._p_worker.terminate()
-        if not self._t_postprocessor.done():
-            self._t_postprocessor.cancel()
-        logger.info('%s is stopped', self.__class__.__name__)
+    async def _run_preprocess(self):
+        # ...
 
-    def __del__(self):
-        self.stop()
+    async def _run_postprocess(self):
+        # ...
+```
+
+```python
 
     async def preprocess(self, x):
         '''
@@ -282,6 +280,10 @@ class BatchedService:
         If you override this method, remember it must be `async`.
         '''
         return x
+```
+
+
+```python
 
     async def _run_preprocess(self):
         while True:
@@ -307,7 +309,9 @@ class BatchedService:
             while self._q_to_worker.full():
                 await asyncio.sleep(0.0015)
             self._q_to_worker.put(x)
+```
 
+```python
     async def _run_postprocess(self):
         while True:
             while self._q_from_worker.empty():
@@ -358,7 +362,9 @@ class BatchedService:
             # Going out of scope here will not destroy the object.
             # Once the waiting request has consumed the corresponding Future object
             # and returned, the Future object will be garbage collected.
+```
 
+```python
     def _set_batch_submitter(self, wait_seconds=None):
         if self._submit_batch_timer is None:
             self._submit_batch_timer = self._loop.call_later(
@@ -429,6 +435,29 @@ class BatchedService:
         # the Future object of this request will contain its response.
         return fut
 
+    async def a_do_one(self, x):
+        fut = await self._submit_one(x)
+        return await fut
+```
+
+
+```python
+    def stop(self):
+        logger.info('Stopping %s ...', self.__class__.__name__)
+        if not self._t_preprocessor.done():
+            self._t_preprocessor.cancel()
+        if self._p_worker.is_alive():
+            self._p_worker.terminate()
+        if not self._t_postprocessor.done():
+            self._t_postprocessor.cancel()
+        logger.info('%s is stopped', self.__class__.__name__)
+
+    def __del__(self):
+        self.stop()
+```
+
+
+```python
     async def _submit_bulk(self, x) -> asyncio.Future:
         # Create a Future object to receive the result,
         # and put it in the queue.
@@ -445,10 +474,6 @@ class BatchedService:
     # Both methods may raise exceptions.
     # If user captures and ignores the exception, the service will continue.
     # If user stops at exception, they should stop the service by calling `stop`.
-
-    async def a_do_one(self, x):
-        fut = await self._submit_one(x)
-        return await fut
 
     async def a_do_bulk(self, x):
         fut = await self._submit_bulk(x)
