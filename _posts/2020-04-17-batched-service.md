@@ -386,6 +386,10 @@ All in all, the input data, the results, and the `Future` objects that will rece
 
 ## Request batching---part 2
 
+The "Postprocessor" takes the results from the queue `_q_from_worker`, and distributes them to the awaiting requests.
+As explained above, correct correspondence between awaiting requests and results 
+is guaranteed.
+
 ```python
 class BatchedService:
 
@@ -394,50 +398,124 @@ class BatchedService:
             while self._q_from_worker.empty():
                 await asyncio.sleep(0.0018)
 
-            result = self._q_from_worker.get()
+            results = self._q_from_worker.get()
             await asyncio.sleep(0)
 
-            result = await self.postprocess(result)
+            results = await self.postprocess(results)
 
             # Get the future 'box' that should receive this result.
             # The logic guarantees that things are in correct order.
-            future = self._q_future_results.get_nowait()
+            futures = self._q_future_results.get_nowait()
 
-            for f, r in zip(future, result):
-                    f.set_result(r)
-
-            # The Future objects are referenced in the originating requests,
-            # hence the `future` and `f` here are a second reference.
-            # Going out of scope here will not destroy the object.
-            # Once the waiting request has consumed the corresponding Future object
-            # and returned, the Future object will be garbage collected.
+            for f, r in zip(futures, results):
+                f.set_result(r)
 
     async def postprocess(self, x):
-        '''
-        This performs transformation on the result obtained from the queue,
-        which has been placed in there by the worker process.
-        This transformation happens in the current process.
-
-        If you override this method, remember it must be `async`.
-        '''
         return x
 ```
 
+Similar to "Preprocessor", the design provides a hook `postprocess`
+for the subclass to perform transformation on the result as needed.
+
+One detail here is that a `Future` variable, after being taken out of the queue and assigned the result, goes out of scope and is garbage-collected.
+This is not a problem, though, because this variable is but one of two references to the same `Future` object. The other reference is being held by the request (in `do_one`),
+which is eagerly, or patiently, waiting for the object to bear result.
+
 ## Finishing off
+
+Below is a naive way to kill the infinite loops.
 
 ```python
     def stop(self):
-        logger.info('Stopping %s ...', self.__class__.__name__)
+        print('Stopping %s ...' % self.__class__.__name__)
         if not self._t_preprocessor.done():
             self._t_preprocessor.cancel()
         if self._p_worker.is_alive():
             self._p_worker.terminate()
         if not self._t_postprocessor.done():
             self._t_postprocessor.cancel()
-        logger.info('%s is stopped', self.__class__.__name__)
+        print('%s is stopped' % self.__class__.__name__)
 
     def __del__(self):
         self.stop()
 ```
 
+I'm not sure this is totally "clean". But... do you care by now?
+
 ## Putting it to test
+
+Does it work? Let's test it!
+
+I'm making up a simple example that verifies "batching" works.
+The idea is that the computation is totally trivial, but it deliberately `sleep` for a while in the worker process in the `transform` method.
+The sleep time is *slightly* longer for a longer input list, but *much, much* shorter than the sum of sleep times were the long list be split into shorter input lists.
+
+We subclass `VectorTransformer` and `BatchedService` as follows:
+
+```python
+import math
+import time
+
+
+class MyModel(VectorTransformer):
+    def transform(self, x):
+        time.sleep(0.001 * math.log(len(x) + 1))
+        return [v*v for v in x]
+
+
+class MyService(BatchedService):
+    def __init__(self, max_batch_size=200):
+        super().__init__(max_batch_size=max_batch_size)
+        
+    def start(self):
+        super().start(worker_class=MyModel)
+```
+
+We ran the following test code:
+
+```python
+import asyncio
+
+
+async def test_sequential(service, data):
+    return [await service.do_one(x) for x in data]
+
+
+async def test_batched(service, data):
+    tasks = [service.do_one(x) for x in data]
+    return await asyncio.gather(*tasks)
+
+
+def main():
+    data = list(range(880))
+    service = MyService()
+    service.start()
+
+    t0 = time.perf_counter()
+    y1 = asyncio.get_event_loop().run_until_complete(test_sequential(service, data))
+    t1 = time.perf_counter()
+    print('time elapsed:', t1 - t0, 'seconds')
+
+    t0 = time.perf_counter()
+    y2 = asyncio.get_event_loop().run_until_complete(test_batched(service, data))
+    t1 = time.perf_counter()
+    print('time elapsed:', t1 - t0, 'seconds')
+
+    assert len(y1) == len(y2) == len(data)
+    assert y1 == y2
+
+    service.stop()
+
+main()
+```
+
+and got this print-out:
+
+```shell
+time elapsed: 90.9173553609944 seconds
+time elapsed: 0.12375942600192502 seconds
+```
+
+In this little contrived example, the batched version is 734 times faster than the sequential version.
+
+
