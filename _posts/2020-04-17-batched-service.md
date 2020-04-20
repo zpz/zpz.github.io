@@ -183,7 +183,7 @@ This method starts the worker process, and sets up the "Preprocessor" and "Postp
 
 This starts off pretty good. The bad news is, this is all the low-hanging fruit there is. Next, we have to tackle the tricky part---batching.
 
-## How to support request batching---the first part
+## Request batching---the first part
 
 Batching is accomplished by two parts in coordination.
 The first part happens before data is sent to the worker process.
@@ -384,11 +384,33 @@ In the meantime, the `Future` elements are put in `_q_future_results` in the sam
 and they will be picked up by the "Postprocessor" in the same order.
 All in all, the input data, the results, and the `Future` objects that will receive the results, stay coordinated in the same, correct order.
 
-## How to support request batching---the second part
-
-
+## Request batching---the second part
 
 ```python
+class BatchedService:
+
+    async def _run_postprocess(self):
+        while True:
+            while self._q_from_worker.empty():
+                await asyncio.sleep(0.0018)
+
+            result = self._q_from_worker.get()
+            await asyncio.sleep(0)
+
+            result = await self.postprocess(result)
+
+            # Get the future 'box' that should receive this result.
+            # The logic guarantees that things are in correct order.
+            future = self._q_future_results.get_nowait()
+
+            for f, r in zip(future, result):
+                    f.set_result(r)
+
+            # The Future objects are referenced in the originating requests,
+            # hence the `future` and `f` here are a second reference.
+            # Going out of scope here will not destroy the object.
+            # Once the waiting request has consumed the corresponding Future object
+            # and returned, the Future object will be garbage collected.
 
     async def postprocess(self, x):
         '''
@@ -401,60 +423,7 @@ All in all, the input data, the results, and the `Future` objects that will rece
         return x
 ```
 
-
-```python
-    async def _run_postprocess(self):
-        while True:
-            while self._q_from_worker.empty():
-                await asyncio.sleep(0.0018)
-
-            result = self._q_from_worker.get()
-            await asyncio.sleep(0)
-
-            if result == NO_MORE_OUTPUT:
-                logger.debug('postprocess: shutting down')
-                return
-
-            if not isinstance(result, SubProcessError):
-                try:
-                    result = await self.postprocess(result)
-                except Exception as e:
-                    logger.exception(str(e))
-                    result = e
-
-            # Get the future 'box' that should receive this result.
-            # The logic guarantees that things are in correct order.
-            future = self._q_future_results.get_nowait()
-
-            if isinstance(future, asyncio.Future):
-                if not future.cancelled():
-                    if isinstance(result, Exception):
-                        future.set_exception(result)
-                    else:
-                        future.set_result(result)
-                else:
-                    logger.info('Future object is already cancelled')
-            else:
-                if isinstance(result, Exception):
-                    for f in future:
-                        if not f.cancelled():
-                            f.set_exception(result)
-                        else:
-                            logger.info('Future object is already cancelled')
-                else:
-                    for f, r in zip(future, result):
-                        if not f.cancelled():
-                            f.set_result(r)
-                        else:
-                            logger.info('Future object is already cancelled')
-
-            # The Future objects are referenced in the originating requests,
-            # hence the `future` and `f` here are a second reference.
-            # Going out of scope here will not destroy the object.
-            # Once the waiting request has consumed the corresponding Future object
-            # and returned, the Future object will be garbage collected.
-```
-
+## Finishing off
 
 ```python
     def stop(self):
@@ -471,26 +440,4 @@ All in all, the input data, the results, and the `Future` objects that will rece
         self.stop()
 ```
 
-
-```python
-    async def _submit_bulk(self, x) -> asyncio.Future:
-        # Create a Future object to receive the result,
-        # and put it in the queue.
-        fut = self._loop.create_future()
-
-        # Send the bulk for preprocessing.
-        # This skips the "batching" process, which non-bulk requests go through.
-        await self._q_batches.put((x, fut))
-
-        # Once the result is available, it will be put in this Future.
-        return fut
-
-    # `a_do_one` and `a_do_bulk` are API for end user.
-    # Both methods may raise exceptions.
-    # If user captures and ignores the exception, the service will continue.
-    # If user stops at exception, they should stop the service by calling `stop`.
-
-    async def a_do_bulk(self, x):
-        fut = await self._submit_bulk(x)
-        return await fut
-```
+## Putting it to test
