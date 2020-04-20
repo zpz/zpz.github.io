@@ -183,7 +183,7 @@ This method starts the worker process, and sets up the "Preprocessor" and "Postp
 
 This starts off pretty good. The bad news is, this is all the low-hanging fruit there is. Next, we have to tackle the tricky part---batching.
 
-## Request batching---the first part
+## Request batching---part 1
 
 Batching is accomplished by two parts in coordination.
 The first part happens before data is sent to the worker process.
@@ -384,7 +384,7 @@ In the meantime, the `Future` elements are put in `_q_future_results` in the sam
 and they will be picked up by the "Postprocessor" in the same order.
 All in all, the input data, the results, and the `Future` objects that will receive the results, stay coordinated in the same, correct order.
 
-## Request batching---the second part
+## Request batching---part 2
 
 ```python
 class BatchedService:
