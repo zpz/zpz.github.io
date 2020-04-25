@@ -37,7 +37,7 @@ This multi-process structure allows the logistics in the main process to happen 
 
 We may as well present the architecture up front and explain below.
 
-![arch-1](../images/batched-service-1.png)
+![arch-1](../images/batched_service_1.png)
 
 As individual requests come in, a "batcher" (`Batcher` in the diagram) collects them and holds them in a buffer.
 Once the buffer is full or waiting-time is over (even if the buffer is not yet full), the content of the buffer will be placed in a queue (`Queue-batches`). The unit of the data in the queue is "batch", or basically a `list` of individual requests.
