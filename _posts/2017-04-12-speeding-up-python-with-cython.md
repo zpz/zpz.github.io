@@ -503,11 +503,11 @@ Another significant speed-up, from 0.019 to 0.012 seconds. This speed-up is achi
 
 Besides `version08.c`, which is a C translation of `version08.pyx`, another file `version08.html` was generated for us. This file is useful for diagnostics during development. The content of this file is shown below.
 
-![cython_html_yellow](../images/cython_html_yellow.png)
+![cython_html_yellow](/images/cython_html_yellow.png)
 
 The yellow-highlighted lines indicate Python, as opposed to C, operations. These are potential spots for speed tuning. Clicking on the yellow lines will show the corresponding C code translations.
 
-![cython_html_yellow_expanded](../images/cython_html_yellow_expanded.png)
+![cython_html_yellow_expanded](/images/cython_html_yellow_expanded.png)
 
 In function `weekday`, we realize that the integer division and remainder functions `//` and `%` are Python functions. However, since the operands are all integers, we might use C functions of these operations for hopeful speed gain. This effect is achieved by the Cython decorator `cdivision`.
 
@@ -532,7 +532,7 @@ def weekdays(long[:] ts):
 
 Let's see the generated HTML file:
 
-![cython_html_cdivision](../images/cython_html_cdivision.png)
+![cython_html_cdivision](/images/cython_html_cdivision.png)
 
 The yellow highlights in function `weekday` are gone. The previous yellow lines, which were translated to multiple lines of C code each, are now translated to a single line of C code each.
 
