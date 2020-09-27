@@ -5,40 +5,40 @@ excerpt_separator: <!--excerpt-->
 tags: [python]
 ---
 
-In [a previous post]({{ site.baseurl }}/blog/batched-service/), I described an approach to serving machine learning models with built-in "batching". The design has been used in real work with good results. Over time, however, I have felt some pains and learned some new tricks. Finally, I got a chance to sit down and make an overhaul to this thing from scratch.<!--excerpt-->
+In [a previous post]({{ site.baseurl }}/blog/batched-service/), I described an approach to serving machine learning models with built-in "batching". The design has been used in real work with good results. Over time, however, I have observed some pain points and learned some new tricks. Finally, I got a chance to sit down and make an overhaul to it from scratch.<!--excerpt-->
 
 This is a new design. It is not recognizable as a revision of the previous one. As such, you don't need to read the old post in order to understand this one. Nevertheless, let's re-visit the main points of the previous design:
 
 1. It is assumed that the model is decomposed into three sequential components: (1) a `Preprocessor`; (2) a `VectorTransformer`; (3) a `Postprocessor`.
-2. Both `Preprocessor` and `Postprocessor` are assumed light weight. They run in the main process. The `VectorTransformer`, as the meat of the model, does heavy lifting in its own process (and it is free to launch other processes from there if it so desires).
+2. Both `Preprocessor` and `Postprocessor` are assumed light weight. They run in the main process. The `VectorTransformer`, as the meat of the model, does heavy lifting in its own process.
 3. Data flows through the components via `multiprocessing` `Queue`s.
-4. The service API supports a **singleton** endpoint and a **batch** endpoint. Queries into the first are automatically batched to take advantage of vectorized computation in the `VectorTransformer`. In contrast, the latter is an "express lane", meaning batch inputs (large or small) are processed as they arrive, skipping batching (they are already batches upon input). As we can see, the `VectorTransformer` always works on batches.
-5. The "scheduler" in the main process uses `asyncio`.
+4. The service API supports a **singleton** endpoint and a **batch** endpoint. Queries to the first are automatically batched to take advantage of vectorized computation in the `VectorTransformer`. In contrast, the latter endpoint is an "express lane", meaning batch inputs (large or small) are processed as they arrive, skipping batching (they are already batches upon input). As we can see, the `VectorTransformer` always works on batches.
+5. The "coordinator" in the main process uses `asyncio`.
  In particular, `asyncio` `Future`s are used to guarantee that, after all the waiting, batching, asynchorous flow and processing in multiple stages, a result is returned to the correct request that has been waiting for it.
 
-Some limitations that I have observed in the design include
+Some limitations of this design include
 
-- The assumed three-component structure, as well as the assumption that they are light-heavy-light, are rigid. In reality, it's totally reasonable to have a pipeline with more, or less, than three components, and to have more than one heavy component.
-- The batch endpoint adds to the complexity of the implementation and the usage. Given that the singleton endpoint does batching behind the scene, *if* this is pushed to the limit of efficiency, then removing the batch endpoint would bring nice simplification without much loss in capability.
-- The design does not help the user to make full use of CPU cores. The `VectorTransformer` runs in its own process, and it in turn is free to do multiprocessing. However, that is demands a certain level of coding skills on the user.
-- The `Preprocessor` and `Postprocesser`, sharing the main process with the async scheduler, are better non-blocking---i.e., async. That again demmands a certain level of coding skills. Moreover, the benefit in making them async (at a cost to simplicity) is likely small if these processors do not involve I/O, which is often the case.
+1. The assumed three-component structure, as well as the assumption that they are light-heavy-light, are rigid. In reality, it's totally reasonable to have a pipeline with more, or less, than three components, and to have any number of heavy components among them.
+2. The batch endpoint adds to the complexity of the implementation and the usage. Given that the singleton endpoint does batching behind the scene, *if* this is pushed to the limit of efficiency, then removing the batch endpoint would bring nice simplification without much loss in capability.
+3. The design does not help the user to make full use of CPU cores. The `VectorTransformer` runs in its own process, and it in turn is free to do multiprocessing. However, that demands a certain level of coding skills on the user.
+4. The `Preprocessor` and `Postprocesser`, sharing the main process with the async coordinator, are better non-blocking---i.e., async. That again demmands a certain level of coding skills. Moreover, the benefit in making them async (at a cost to simplicity) is likely small if these processors do not involve I/O, which is often the case.
 
 To address these flaws, the new design has some very different ideas on the high level. (For ease of explanation, I will refer to this design the "framework").
 
-- It supports a sequence of components, however many, with no assumption on their roles and relative expenses.
-- Each component is "traditional" synchronous code within a single process. Multiple instances of this component can run in multiple processes as *independent* "workers". The user just specifies the number of workers, and the rest is managed by the framework.
-- The "scheduler" and the components run in separate processes. The number of processes is one (the scheduler) plus the number of workers (each component uses one or more workers). Each process may be instructed to run on a specific CPU core.
-- Data flows through the processes in `multiprocessing` `Queue`s.
-- There is another `Queue` for errors. If error occurs in any component, the `Exception` object is short-circuited back to the scheduler in this queue. Only valid result will proceed to the next component. The exception object will be paired up with the awaiting request, the same way a valid result is.
-- There is only a singleton endpoint. No batch endpoint.
-- Each component can decide to take batches or singletons as input. In the former case, the framework assembles singletons (which are flowing in the queue) into a batch, and feed it to the component, which should output a batch result. The framework dissembles the batch result to singleton results, and places them in the queue. This way, the data that flows between the components are always singletons.
+1. It supports a sequence of components (or stages), however many, with no assumptions on their roles and relative expenses.
+2. Each component is "traditional" synchronous code within a single process. Multiple instances of this component can run in multiple processes as *independent* "workers". The user just specifies the number of workers, and the rest is managed by the framework.
+3. The "coordinator" and the workers run in separate processes. Each process may be instructed to run on a specific CPU core.
+4. Data flows through the processes in `multiprocessing` `Queue`s.
+5. There is another `Queue` for errors. If error occurs in any worker, an `Exception` object is short-circuited back to the coordinator in this queue. Only valid result will proceed to the next stage. The exception object will be paired up with the awaiting request, the same way a valid result is.
+6. There is only a singleton endpoint. No batch endpoint.
+7. Each component can decide to take batches or singletons as input. In the batch case, the framework assembles singletons (which are flowing in the queue) into a batch, and feed it to the component, which should output a batch result. The framework dissembles the batch result to singleton results, and places them in the queue. This way, the data that flows between the components are always singletons, and each component independently decides whether it take batches or singletons.
 
-This is a lot of power in abstract! Now let's get concrete.
+This is a lot of power in abstract! Let's get concrete.
 
 
-## The scheduler
+## The coordinator
 
-The entrypoint, or scheduler, of the whole thing is a class called `ModelService`. It manages workers, which are concrete subclasses of `Modelet`. Before describing `ModelService`, let's get a rough picture of `Modelet`.
+The entrypoint, or coordinator, of the whole thing is a class called `ModelService`. It manages workers, which are concrete subclasses of `Modelet`. Before describing `ModelService`, let's get a rough picture of `Modelet`.
 
 ```python
 from abc import ABCMeta, abstractmethod
@@ -68,18 +68,15 @@ class Modelet(metaclass=ABCMeta):
 
 The workflow for a `Modelet` is quite clear in this sketch. We'll fill in details later.
 
-A sketch for `ModelService` is as follows.
+A sketch of `ModelService` is as follows.
 
 ```python
 import asyncio
-import logging
 import multiprocessing as mp
 import queue
 from typing import Type, List
 
 import psutil
-
-logger = logging.getLogger(__name__)
 
 
 class ModelService:
@@ -102,22 +99,21 @@ class ModelService:
         ...
 
     async def predict(self, x):
-        ...
         place_x_in_queue()
         wait_for_result()
         return_result()
-        ...
 ```
 
 On a `ModelService` object, we call `add_modelet` to add one "component" at a time. We can add as many as needed; they become sequential components in the model pipeline. Note that one component is added by a single call to `add_modelet`, regardless of the number of workers it needs. Worker info is taken by `add_modelet`.
 
 Once all components have been added, we call `start`, which, besides starting the worker processes, calls `_gather_results` to launch a background job. This job picks up results of the very last modelet (via some queue) and pairs it up with the awaiting request.
 
-At this point, the model service is ready, but idle. It will have work to do only if user calls `predict`. That, of course, is what a *service* is about.
+At this point, the model service is ready but idle. It will get work to do only after `predict` is called. That, of course, is what a *service* is about.
 
-Requests are received by `predict`. In this method, the input is placed in some queue. Then it asynchronously waits for the result. The input will flow through the modelets. Once its result is produced by the final modelet, it gets picked up by `_gather_results` and is somehow provided to the awaiting request, i.e. the particular call of `predict` that handled the request and placed the input in the queue.
+Requests are received by `predict`. In this method, the input is placed in some queue. Then it asynchronously waits for the result. The input will flow through the modelets. Once its result is produced by the final modelet, it gets picked up by `_gather_results` and is provided to the awaiting request, i.e. the particular call of `predict` that handled the particular request and placed the input in the queue.
+Once getting the result, `predict` returns.
 
-Once getting the result, `predict` returns. Note that both `_gather_results` and `predict` are async functions.
+Note that both `_gather_results` and `predict` are async functions.
 
 This is still somewhat abstract.
 Let's start setting up `ModelService` so that we have concrete variables to refer to.
@@ -165,11 +161,11 @@ Now let's add a modelet.
 
         for cpu in cpus:
             if cpu is None:
-                logger.info('adding modelet %s', modelet.__name__)
+                print('adding modelet %s' % modelet.__name__)
                 cc = None
             else:
                 assert 0 <= cpu < n_cpus
-                logger.info('adding modelet %s at CPU %d', modelet.__name__, cpu)
+                print('adding modelet %s at CPU %d' % (modelet.__name__, cpu))
                 cc = [cpu]
             self._modelets.append(
                 mp.Process(
@@ -187,12 +183,12 @@ Now let's add a modelet.
 ```
 
 The parameter `modelet` is the *class object* of a subclass of `Modelet`.
-Its *classmethod* `run` is the target function for `multiprocessing` to run in a new process.
+Its *classmethod* `run` is the target function for `multiprocessing` to call in a new process.
 This target takes an input queue, an output queue, and an error queue.
 The input queue is the output queue of the last modelet;
 if this is the first modelet, then the input queue is the very initial queue that is populated by client requests via calls to `ModelService.predict`.
-A new queue is created to act as the output queue of this new modelet.
-The queue is appended to `_q_in_out` and will be the input queue for the next modelet, if one is to be added; otherwise it will be the final output queue from which `_gather_results` collects results.
+A new queue is created to act as the output queue for this new modelet.
+The queue is appended to `_q_in_out` and will be the input queue for the next modelet, if one is to be added; otherwise it will be the final output queue from which `_gather_results` will collect results.
 The error queue is a shared one between all modelets and workers; it is for output only.
 
 In addition, the parameter `cpus` specifies the CPU core(s) on which this modelet should run.
@@ -214,6 +210,7 @@ Note that `add_modelet` does not *start* the worker process; it only sets it up.
             return
         if self._t_gather_results is not None and not self._t_gather_results.done():
             self._t_gather_results.cancel()
+            self._t_gather_results = None
         for m in self._modelets:
             if m.is_alive():
                 m.terminate()
@@ -282,9 +279,9 @@ In order to know which `Future` a result should be attached to,
 we create an ID for each `Future` object, and let the ID accompany the data/result of this request throughout the queues.
 In particular,
 the pair `(future_id, request_data)` is placed in the very first queue.
-Subsequent queues knows to pass on the first element of the tuple and process the second element.
+Subsequent queues know to pass on the first element of the tuple and process the second element.
 
-Both `predict` and `_gather_results` has some logic about waiting on a queue.
+Both `predict` and `_gather_results` have some logic about waiting on a queue.
 In `predict`, when it tries to put the input data in the first queue, the queue could be full, in which case it needs to wait.
 In `_gather_results`, when it tries to take a result out of the final output queue (or an `Exception` object out of the error queue), the queue could be empty, in which case it needs to wait. 
 The queue of valid results gets priority over the queue of exceptions.
@@ -293,11 +290,20 @@ Only when the result queue is empty is the error queue checked.
 
 ## The workers
 
-`Modelet.run` is the target function for `multiprocessing`.
-It's a simple method, so we'll start with it.
+Let's recap the work of the coordinator.
+Once it receives a client request, it places the request in the first queue, and waits on the final result queue and the exception queue for a valid result or exception info, whichever comes out. Then it returns the outcome to the correct requester.
+
+The request data flows to the first modelet (any of its workers, whoever gets it), which places the result in the next queue. This first-stage result gets picked up by the second modelet, which processes it and places the result in the next queue,... and so on. You get the idea.
+
+Flowing in the queues are always individual requests.
+If a worker can benefit from vectorization, it can choose to *batch* requests and process them at once. This is the only tricky part in the worker code. Let's start with the non-tricky parts.
 
 ```python
 class Modelet(metaclass=ABCMeta):
+    def __init__(self, *, batch_size: int = None, batch_wait_time: float = None):
+        # `batch_wait_time`: seconds, may be 0.
+        self.batch_size = batch_size or 0
+        self.batch_wait_time = 0 if batch_wait_time is None else batch_wait_time
 
     @classmethod
     def run(cls, *,
@@ -307,24 +313,15 @@ class Modelet(metaclass=ABCMeta):
             psutil.Process().cpu_affinity(cpus=cpus)
         modelet = cls(**init_kwargs)
         modelet.start(q_in=q_in, q_out=q_out, q_err=q_err)
-```
-
-```python
-    def __init__(self, *, batch_size: int = None, batch_wait_time: float = None):
-        # `batch_wait_time`: seconds, may be 0.
-        self.batch_size = batch_size or 0
-        self.batch_wait_time = 0 if batch_wait_time is None else batch_wait_time
 
     def start(self, *, q_in: mp.Queue, q_out: mp.Queue, q_err: mp.Queue):
         process_name = f'{self.__class__.__name__}--{mp.current_process().name}'
-        logger.info('%s started', process_name)
+        print('%s started' % process_name)
         if self.batch_size > 1:
             self._start_batch(q_in=q_in, q_out=q_out, q_err=q_err)
         else:
-            self.__start_single(q_in=q_in, q_out=q_out, q_err=q_err)
-```
+            self._start_single(q_in=q_in, q_out=q_out, q_err=q_err)
 
-```python
     @abstractmethod
     def predict(self, x):
         # `x`: a single element if `self.batch_size == 0`;
@@ -334,10 +331,8 @@ class Modelet(metaclass=ABCMeta):
         # When `batch_size > 0`, return list of results
         # corresponding to elements in `x`.
         raise NotImplementedError
-```
 
-```python
-    def __start_single(self, *, q_in, q_out, q_err):
+    def _start_single(self, *, q_in, q_out, q_err):
         batch_size = self.batch_size
         while True:
             uid, x = q_in.get()
@@ -347,15 +342,48 @@ class Modelet(metaclass=ABCMeta):
                 else:
                     y = self.predict(x)
                 q_out.put((uid, y))
-
             except Exception as e:
-                logger.info(e)
-                # There are opportunities to print traceback
-                # and details later using the `SubProcessError`
-                # object. Be brief on the logging here.
-                err = SubProcessError(e)
-                q_err.put((uid, err))
+                q_err.put((uid, e))
 ```
+
+`Modelet.run` is the target function for `multiprocessing`.
+It creates a class object and kicks off an infinite loop by calling
+the `start` method.
+
+One thing to note in `_start_single` is how it takes care to pass forward the ID of the `Future` object that corresponds to the request.
+When a modelet has multiple workers, they concurrently process requests.
+By the end of the pipeline, there is no guarantee that the outputs come in the same order as the inputs that got placed into the first queue.
+This is why we need to carry around this ID
+in order to pair each result with its request.
+
+The batching behavior is controlled by two parameters:
+`batch_size` and `batch_wait_time`.
+If there are plenty of requests waiting in the pipeline,
+we'll collect `batch_size` number of elements and process the batch.
+On the other hand, consider the case where requests arrive sporadically.
+Imagine we have collected fewer than `batch_size` number of elements
+and have waited a while for the next one, but it's not coming!
+We need to stop the wait and process the "partial" batch.
+How long we should wait before moving on is controlled by `batch_wait_time`.
+
+As it turned out, this logic is not simple.
+
+Suppose `batch_size` is 10 and `batch_wait_time` is 1 second.
+How exactly do they work together?
+
+Say we have collected 6 elements, and have been waiting for exactly 1 second; the next is yet to come. Should we move on processing the 6 elements? Yes.
+
+What if we currently have an empty batch, and have waited for 1 second? Should we quit the wait? Of course not. We have to get at least one element. Then should we move on right away, since we have waited for, say, 2.3 seconds for this one?
+
+Not so fast. Imagine a whole bunch have just arrived all of a sudden.
+Although we have waited for a long time, now after the first one, if we keep collecting, we may get the desired `batch_size` count of elements without much further wait.
+
+What if the second element needs a little wait, say, 0.1 second? Should we apply `batch_wait_time` here and move on once no more is coming within this wait time?
+
+My design for this situation is, "no more wait". Since we have waited longer than `batch_wait_time` for the first one (as we have to), we'll keep collecting up to `batch_size` elements *if they are already here*. That is, a wait time of 0 is used if the first element has taken longer than `batch_wait_time`.
+
+Let's see the code.
+
 ```python
     def _start_batch(self, *, q_in, q_out, q_err):
         batch_size = self.batch_size
@@ -409,15 +437,61 @@ class Modelet(metaclass=ABCMeta):
             try:
                 results = self.predict(batch)
             except Exception as e:
-                logger.info(e)
-                err = SubProcessError(e)
                 for uid in uids:
-                    q_err.put((uid, err))
+                    q_err.put((uid, e))
             else:
                 for uid, y in zip(uids, results):
                     q_out.put((uid, y))
 ```
 
-### batching
+In the branch for `batch_wait_time > 0`, we first wait for up to this duration.
+If the first element arrives within this duration, we continue to collect subsequent elements with this wait time.
+If the first element does not arrive within this duration, we then wait for the first element for as long as it takes; after that we collect subsequent elements without waiting.
+
+Also notice that, although predictions are made on a batch, we place individual results in the output queue.
+
+There is a second thought on the "wait time".
+The definition adopted here is the time between elements.
+Imagine the situation where the arrival times of elements are spread out just slightly below `batch_wait_time` in between.
+The total time spent on collecting the batch is up to `batch_wait_time` times `batch_size`.
+In other words, the first element may wait up to this long before being processed.
+That might be too long.
+
+An alternative definition of `batch_wait_time` is the accumulative wait time for the whole batch. If we implement this definition, then any element will wait for no longer than `batch_wait_time` before being processed. I feel this would be a better approach.
+
 
 ## Example
+
+Just to show the usage and test the code works, we made up a simple example:
+
+```python
+class Scale(Modelet):
+    def predict(self, x):
+        return x * 2
+
+
+class Shift(Modelet):
+    def predict(self, x):
+        return x + 3
+
+
+async def test_service():
+    service = ModelService(cpus=[0])
+    service.add_modelet(Scale, cpus=[1,2])
+    service.add_modelet(Shift, cpus=[3])
+    service.start()
+
+    z = await service.predict(3)
+    assert z == 3 * 2 + 3
+
+    x = list(range(10))
+    tasks = [service.predict(v) for v in x]
+    y = await asyncio.gather(*tasks)
+    assert y == [v * 2 + 3 for v in x]
+
+    service.stop()
+
+asyncio.run(test_service())
+```
+
+It worked.
