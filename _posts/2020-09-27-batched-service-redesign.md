@@ -462,7 +462,7 @@ An alternative definition of `batch_wait_time` is the accumulative wait time for
 
 ## Example
 
-Just to show the usage and test the code works, we made up a simple example:
+Just to show the usage and test the code, we made up a simple example:
 
 ```python
 class Scale(Modelet):
