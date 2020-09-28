@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Speeding up Python Numerics: an Entr&eacute;e with C and cffi"
+title: "Speeding up Python with C and cffi"
 excerpt_separator: <!--excerpt-->
 tags: [python]
 ---

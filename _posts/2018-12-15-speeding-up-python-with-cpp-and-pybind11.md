@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Speeding up Python Numerics: the Main Course with C++ and pybind11"
+title: "Speeding up Python with C++ and pybind11"
 excerpt_separator: <!--excerpt-->
 tags: [python]
 ---
