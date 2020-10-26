@@ -450,6 +450,9 @@ If the first element does not arrive within this duration, we then wait for the 
 
 Also notice that, although predictions are made on a batch, we place individual results in the output queue.
 
+By the way, this is the absolute first time I have ever used the `try ... except ... else` syntax.
+It just occurred unconsciously.
+
 There is a second thought on the "wait time".
 The definition adopted here is the time between elements.
 Imagine the situation where the arrival times of elements are spread out just slightly below `batch_wait_time` in between.
