@@ -1,11 +1,11 @@
 ---
 layout: post
-title: "Simple Stream Processing With I/O Steps"
+title: "Simple Stream Processing With I/O Operations"
 excerpt_separator: <!--excerpt-->
 tags: [python]
 ---
 
-Suppose we need to process a data stream in a sequence of steps (or "operations" or "functions"). If all the steps are CPU-bound, then we just chain them up. Each data item goes through the CPU-bound functions one by one; the CPU is fully utilized. Now, if one or more of the steps involve I/O, typical examples beining disk I/O or http service calls, things get interesting.<!--excerpt-->
+Suppose we need to process a data stream in a sequence of steps (or "operations" or "functions"). If all the steps are CPU-bound, then we just chain them up. Each data item goes through the CPU-bound functions one by one; the CPU is fully utilized. Now, if one or more of the steps involve I/O, typical examples being disk I/O or http service calls, things get interesting.<!--excerpt-->
 
 The interesting part is that I/O-bound operations spend much time waiting on something external of the CPU. If we naively call the I/O function and wait for its result, much of the time is wasted, because during the time of waiting, the CPU may very well do something else useful. The solution, of course, is concurrency---let multiple calls to the I/O function be active at the same time, so that their waiting periods overlap. Nowadays a good way to do I/O concurrency is using `asyncio`. In this post, I'll develop a few utilities to make this task nice and easy.
 
@@ -483,6 +483,6 @@ In [4]:
 
 A very nice feature of these functions is that the `AsyncIterator` type unites them all. The output of one can be the input of another. As a result, they can be used in a "pipe" fashion in flexible ways.
 
-The `transform` and `unordered_transform` are like "mapper", but they don't have to take one input and generate one output. They could aggregate and expand, with the help of `batch` and `unbatch`.
+The `transform` and `unordered_transform` are like "mappers", but they don't have to take one input and generate one output. They could aggregate and expand, with the help of `batch` and `unbatch`.
 
 The final example shows that `drain` could behave like a "reducer". But not quite, as `drain` can not produce an output stream. That's something to think about!
