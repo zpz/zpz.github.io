@@ -272,7 +272,7 @@ The reason is that at this moment there may very well be items being processed i
 # Sinks
 
 A slight variant to "transformer" is a "sink", which processes data but does not produce results. Or, more accurately, we don't care to receive the results. Examples include writing data to files, inserting to databases, sending out emails, etc.
-For verb for a "sink" is "drain", so that's the name of the function. It simply uses `transform` or `unordered_transform` and ignores their output.
+The verb for a "sink" is "drain", so that's the name of the function. It simply uses `transform` or `unordered_transform` and ignores their output.
 
 ```python
 
@@ -430,15 +430,19 @@ Before running it, let's figure out what the result should be.
    - `range(6)`
    - `range(2)`
    - `range(4)`
-3. `unbatch` will flatten these out (note that the upstream of `unbatch` provided `range` instead of `list` objects, and that's fine) into the stream
+3. `unbatch` will flatten these out into the stream
    - `0, 1, 2, 3, 4, 0, 1, 2, 3, 4, 5, 0, 1, 0, 1, 2, 3`
 
    These are 17 numbers and `buffer` does not change this.
+
+   (Note that the upstream of `unbatch` provides `range` instead of `list` objects, and that's fine.)
 4. `scale` doubles each of these numbers.
 5. `drain` and `mysink` will add them up.
 
 All in all, the final sum should be 64.
-   
+
+Run this in `ipython`:
+
 ```python
 In [3]: 
 
