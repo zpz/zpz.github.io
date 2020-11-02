@@ -98,7 +98,7 @@ The parameter `func` represents an async I/O operation.
 The parameter `workers` specify how many concurrent calls are allowed to `func`. The case where `workers < 2` is simple and has no concurrency at all, so we get it out of the way first. The interesting part comes next.
 
 Because the input could be an infinite stream, the design must take care to control input consumption, concurrent calls, and output production so that no component starves or gets overwhelmed. A good tool for such control is a size-capped queue.
-The designed revolves around four questions:
+The design revolves around four questions:
 
 - How is input consumed?
 - How is output returned?
