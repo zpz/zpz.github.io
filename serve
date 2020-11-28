@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Locally render the site for viewing during development.
+# View it in a browser at localhost:4000
+
+
+docker run --rm -it \
+    --label=jekyll \
+    -v $(pwd):/srv/jekyll \
+    -p 127.0.0.1:4000:4000 \
+    jekyll/jekyll:4.0 \
+    jekyll serve
+
