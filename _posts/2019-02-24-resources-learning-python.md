@@ -129,7 +129,7 @@ I also suggest we always remember,
 
 - [PyCoder's Weekly](https://pycoders.com).
   Entire archive of past issues are [here](https://pycoders.com/issues).
-  It's a good idea to subscribe by email or on Twitter.
+  It's a good idea to subscribe by email.
   This one newsletter helps you stay up-to-date with Python and keep learning.
 
 - [Full Stack Python](https://www.fullstackpython.com/table-of-contents.html).
