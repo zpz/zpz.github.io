@@ -15,7 +15,6 @@ I have identified the following tools as essential to an IT technologist.
   (You are looking at mine, hosted by [Github Pages](https://pages.github.com).)
 - [LinkedIn](https://linkedin.com/in/zpz) for a mostly static but *maintained* profile,
 with occasional self-promotion like announcing a new blog post.
-- [Twitter](https://twitter.com/ZepuZhang) for staying up to date with topics and trends of my interest.
 
 I make use of each of these tools to some extent.
 I feel this is a really versatile and effective combination.
