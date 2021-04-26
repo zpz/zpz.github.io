@@ -14,23 +14,22 @@ Since image building is in the context of a single repo, I'll focus on the [temp
 $ tree .
 .
 ├── build-docker
-├── docker
-│   └── Dockerfile
+├── Dockerfile
 ├── README.md
-├── setup.cfg
 ├── setup.py
 ├── src
 │   └── example
 │       ├── dummy.py
 │       ├── __init__.py
 │       └── py.typed
+│       └── _version.py
 └── tests
     └── test_dummy.py
 
 4 directories, 9 files
 ```
 
-The repo (hence the parent directory) is named `docker-project-template-py`. This repo defines a Python package named `example`. The package source is located in `src/example`. Test code is in `tests/`. Dockerfile is in `docker/`. The other few files on the top level of the repo directory are concerned about Docker image building (`build-docker`), package installation (`setup.cfg`, `setup.py`), and other info (`README.md`). In a substantial project, there may be other top-level directories and files such as `bin/`, `doc/`, `LICENSE`, and so on. Nevertheless, the main topics are
+The repo (hence the parent directory) is named `docker-project-template-py`. This repo defines a Python package named `example`. The package source is located in `src/example`, whereas test code is in `tests/`. The other few files on the top level of the repo directory are concerned about Docker (`Dockerfile`, `build-docker`), package metadata and installation (`setup.py`), and other info (`README.md`). In a substantial project, there may be other top-level directories and files such as `bin/`, `doc/`, `LICENSE`, and so on. Nevertheless, the main topics are
 
 - Package source code
 - Tests
