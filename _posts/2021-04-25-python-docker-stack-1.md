@@ -64,7 +64,7 @@ The date-based versions are recommended for utility libraries that are not relea
 
 Note that I used the exact `tiny` image `zppz/tiny:21.01.02`. User scripts can do the same thing because the image is very stable.
 
-The second type of commands concern finding the latest tag of a specified Docker image. Currently, there's only one command of this type. namely `/usr/tools/find-image`. This command is designed to run outside of Docker. For example,
+The second type of commands concern finding the latest tag of a specified Docker image. Currently, there's only one command of this type, namely `/usr/tools/find-image`. This command is designed to run outside of Docker. For example,
 
 ```shell
 $ cmd="$(docker run --rm zppz/tiny:21.01.02 cat /usr/tools/find-image)"
@@ -78,12 +78,13 @@ This is also how it is intended to be used in user scripts.
 The [base images](https://github.com/zpz/docker) contain some basic and common stuff so that project repos have a common baseline, and don't need to repeat the same setup. As of now, the images contain
 
 - A carefully chosen base, currently `ubuntu:20.10`. Some considerations in this choice include the distro' default Python version (3.8), compatibility with `cuda`, compatibility with the team's build environment---is it in the Debian lineage or CentOS lineage?---etc. (For a team, `ubuntu:20.04` might be preferable as it is a "Long Term Support" version.)
-- Very basic Linux packages such as `curl`, `unzip`, etc. Note, the base images should strike a balance between light weight and usefulness. For example, I do not recommend having `vim` and `git` in there, because it is not recommened to *develop code* within a container (it is rather for executing code).
 - Non-root user account `docker-user`, in group `docker-user`, with home directory `/home/docker-user`. It is the intention that downstream images always run as this user.
+- Very basic Linux packages such as `curl`, `unzip`, etc. Note, the base images should strike a balance between light weight and usefulness. For example, I do not recommend having `vim` and `git` in there, because it is not recommened to *develop code* within a container (it is rather for executing code).
+- Python 3.8.
 - A few Python packages related to testing (`pytest`) and debugging (`pudb`).
 - A *better Python REPL* called `ptpython`.
 - Jupyter notebook package.
-- Nice configuration for the things installed, such as Bash prompt, `ls` coloring, Jupyter behavior, integration between `pudb` and `pytest`, etc.
+- Nice configuration for the things installed, such as informative Bash prompt, `ls` coloring, Jupyter behavior, integration between `pudb` and `pytest`, etc.
 
 That's all for this post. Please read the subsequent parts:
 
