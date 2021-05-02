@@ -64,16 +64,21 @@ The date-based versions are recommended for utility libraries that are not relea
 
 Note that I used the exact `tiny` image `zppz/tiny:21.01.02`. User scripts can do the same thing because the image is very stable.
 
-The second type of commands concern finding the latest tag of a specified Docker image. Currently, there's only one command of this type, namely `/usr/tools/find-image`. This command is designed to run outside of Docker. For example,
+The second type of commands concern finding the latest tag of a specified Docker image. There are two commands of this type, namely `/usr/tools/find-image` and `/usr/tools/find-local-image`. They are designed to run outside of Docker. For example,
 
 ```shell
 $ cmd="$(docker run --rm zppz/tiny:21.01.02 cat /usr/tools/find-image)"
 
 $ bash -c "${cmd}" -- zppz/mini
 zppz/mini:21.04.25
+
+$ cmd="$(docker run --rm zppz/tiny:21.01.02 cat /usr/tools/find-local-image)"
+
+$ bash -c "${cmd}" -- zppz/mini
+zppz/mini:21.04.25
 ```
 
-This is also how it is intended to be used in user scripts.
+This is also how they are intended to be used in user scripts. Whereas `find-image` finds the latest between local and a remote image registry, `find-local-image` finds the latest on the current machine only.
 
 The [base images](https://github.com/zpz/docker) contain some basic and common stuff so that project repos have a common baseline, and don't need to repeat the same setup. As of now, the images contain
 
