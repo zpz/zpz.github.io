@@ -157,12 +157,12 @@ data/  log/
 The `data/` and `log/` are maps of corresponding directories in `~/work/` on the host machine.
 In addition, they are represented in the container by environment variables `DATADIR` and `LOGDIR`, respectively. The project code can use these variables as it wishes.
 
-A clear contrast between the prod and dev containers is that the former does not have access to "live" code. Instead, it has the project package (`example` here) installed and ready for use just like any third-party library.
+A clear contrast between the dev and prod containers is that the latter does not have access to "live" code in `src/`. Instead, it has the project package (`example` here) installed and ready for use just like any third-party library.
 
 
 ## How does this design facilitate team work
 
-Notice that I typed `run-docker zppz/docker-project-template-py` without specifying the version of the image. Inside `run-docker`, it detects whether the image version is specified. If not, it will find the latest version by commands in the image `tiny`.
+Notice that I typed `run-docker zppz/docker-project-template-py` without specifying the version of the image. Inside `run-docker`, it detects whether the image version is specified. If not, it will find the latest version by commands provided by the image `tiny`.
 
 Imagine multiple developers are working on this repo. When Mary begins a new day and decides to test some new code, she types
 
@@ -172,9 +172,9 @@ $ run-docker zppz/docker-project-template-py
 
 without knowing that Chris has successfully merged some code late yesterday. The company's CI system built and tested the code, and pushed new versions of images `zppz/docker-project-template-py` and `zppz/docker-project-template-py-master` to a private Docker image registry.
 
-Although Mary is not aware of this development, `run-docker` checks and sees the latest version of `zppz/docker-project-template-py` in the registry is newer than the latest version present on Mary's machine. Without human instruction or intervention, `run-docker` specifies the newer version to use, and Docker automatically downloads it. In a few seconds, Mary lands in the container with latest dependencies in place. Some startups would claim this is "advanced AI". I say this is neat automation.
+Although Mary is not aware of this development, `run-docker` checks and sees the latest version of `zppz/docker-project-template-py` in the registry is newer than the latest version present on Mary's machine. Without human instruction or intervention, `run-docker` specifies the newer version to use, and Docker automatically downloads it. In a few seconds, Mary lands in a container with the latest dependencies in place. Some startups would call this "advanced AI". I'll just call it neat automation.
 
-## Other considerations in `run-docker`
+## Other features in `run-docker`
 
 User can pass many arguments into `run-docker` to control its behavior. In addition, `run-docker` determines some settings on its own. Because the script in `mini` is free to evolve, the possibilities are plenty. Below are a few features currently implemented.
 
@@ -184,19 +184,19 @@ User can pass many arguments into `run-docker` to control its behavior. In addit
 
    For another example, user can specify any environment variable needed by the program via `-e name=value`.
 
-2. While `run-docker` will find and use the latest version of the image if a tag is not specified, it happily accepts an exact tag if specified. This is often useful during production deployment, especially rollback.
-
-3. All the arguments after the image name specify the command to be run within the container. This is often used while running a prod container, like
+   While `-p` and `-e` are Docker arguments, project-command arguments are often useful when running a prod container, like
 
    ```
    $ run-docker zppz/docker-project-template-py-master:20210502-002343 python -m example ...
    ```
 
-   When the image name is the last argument, it means the default command of the image should be run. This is usually the shell console or Python interpreter. The examples above for dev container make use of this.
+   On the other hand, when the image name is the last argument, it means the default command of the image should be run. This is often the shell console or Python interpreter. The examples above for dev container make use of this.
 
-4. Unless user uses the `--root` option, `run-docker` always runs as the unprivileged `docker-user` account.
+2. While `run-docker` will find and use the latest version of the image if a tag is not specified, it happily accepts an exact tag if specified. This is often useful during production deployment, especially rollback.
 
-5. Some convenience is offered for running Jupyter notebooks. If I type
+3. Unless user specifies the `--root` option, `run-docker` always runs as the unprivileged `docker-user` account.
+
+4. Some convenience is offered for running Jupyter notebooks. If I type
 
    ```
    $ run-docker zppz/docker-project-template-py notebook
@@ -206,9 +206,9 @@ User can pass many arguments into `run-docker` to control its behavior. In addit
 
    ![docker-jupyter](/images/docker-jupyter.png)
 
-   Now I can type away some disorganized notebook code!
+   Now I'm all ready to type away some disorganized notebook code! It is totally executed within the container, with access to all the installed dependencies and the volume-mapped content in `src/` and `data/`.
 
-   Behind the scene, `run-docker` takes care of port-mapping as well as some notebook settings to make this experience as convenient (and disorganized) as possible!
+   Behind the scene, `run-docker` takes care of port-mapping as well as some Jupyter settings to make this experience as pleasantly disorganized as possible! (Yes, data scientists like that.)
 
 
 That's all for this post. Please read the other parts:

@@ -63,8 +63,8 @@ I should point out that *this project is meant for production use*, rather than 
 
 I've settled on this recommendation:
 
-- Use a `setup.cfg` to hold most meta data.
-- Use a short `pyproject.toml` to declare that this project uses `setuptools`.
+- Use a [`setup.cfg`](https://github.com/zpz/docker-project-template-py/blob/master/setup.cfg) to hold most meta data.
+- Use a short [`pyproject.toml`](https://github.com/zpz/docker-project-template-py/blob/master/pyproject.toml) to declare that this project uses `setuptools`.
 - Try to put all meta data in either `pyproject.toml` or `setup.cfg`; avoid introducing other meta data files.
 
 My workflow to be described here does not need a `setup.py`.
