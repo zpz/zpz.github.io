@@ -174,7 +174,7 @@ without knowing that Chris has successfully merged some code late yesterday. The
 
 Although Mary is not aware of this development, `run-docker` checks and sees the latest version of `zppz/docker-project-template-py` in the registry is newer than the latest version present on Mary's machine. Without human instruction or intervention, `run-docker` specifies the newer version to use, and Docker automatically downloads it. In a few seconds, Mary lands in a container with the latest dependencies in place. Some startups would call this "advanced AI". I'll just call it neat automation.
 
-## Other features in `run-docker`
+## Other features of `run-docker`
 
 User can pass many arguments into `run-docker` to control its behavior. In addition, `run-docker` determines some settings on its own. Because the script in `mini` is free to evolve, the possibilities are plenty. Below are a few features currently implemented.
 
