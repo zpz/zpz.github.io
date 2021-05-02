@@ -64,8 +64,8 @@ I should point out that *this project is meant for production use*, rather than 
 I've settled on this recommendation:
 
 - Use a `setup.cfg` to hold most meta data.
-- Use a short (3-line) `pyproject.toml` to declare that this project uses `setuptools`.
-- Try to put all meta data in `setup.cfg` as long as it supports that, and avoid introducing other meta data files.
+- Use a short `pyproject.toml` to declare that this project uses `setuptools`.
+- Try to put all meta data in either `pyproject.toml` or `setup.cfg`; avoid introducing other meta data files.
 
 My workflow to be described here does not need a `setup.py`.
 If we use an equally short `setup.py` in lieu of `pyproject.toml`, things should work just as well. But since [`pyproject.toml` is more forward looking](https://snarky.ca/what-the-heck-is-pyproject-toml/), I've decided to use it.
