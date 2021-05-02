@@ -63,9 +63,9 @@ I should point out that *this project is meant for production use*, rather than 
 
 I've settled on this recommendation:
 
-- Use a `setup.cfg` to hold most meta data.
-- Use a short (3-line) `pyproject.toml` to declare that this project uses `setuptools`.
-- Try to put all meta data in `setup.cfg` as long as it supports that, and avoid introducing other meta data files.
+- Use a [`setup.cfg`](https://github.com/zpz/docker-project-template-py/blob/master/setup.cfg) to hold most meta data.
+- Use a short [`pyproject.toml`](https://github.com/zpz/docker-project-template-py/blob/master/pyproject.toml) to declare that this project uses `setuptools`.
+- Try to put all meta data in either `pyproject.toml` or `setup.cfg`; avoid introducing other meta data files.
 
 My workflow to be described here does not need a `setup.py`.
 If we use an equally short `setup.py` in lieu of `pyproject.toml`, things should work just as well. But since [`pyproject.toml` is more forward looking](https://snarky.ca/what-the-heck-is-pyproject-toml/), I've decided to use it.
@@ -189,7 +189,7 @@ As of this writing, these code checks are run:
 - [pylint](https://pypi.org/project/pylint/) for various code issues.
 - [mypy](http://www.mypy-lang.org/) for type annotations.
 
-These checks not equally important. The security scanner `bandit` is run on both module code and test code. It will halt the build at any serious issue. Similarly, issues found by `pyflakes` also halt the build. On the other hand, the reports of `radon`, `pylint`, and `mypy` are only for reference. These configurations may change, of course depending on the nature of the project and the developer's opinions.
+These checks are not equally important. The security scanner `bandit` is run on both module code and test code. It will halt the build at any serious issue. Similarly, issues found by `pyflakes` also halt the build. On the other hand, the reports of `radon`, `pylint`, and `mypy` are only for reference. These configurations may change, of course depending on the nature of the project and the developer's opinions.
 
 Finally, the test code is run if coverage target is greater than 0. The coverage target is a parameter that can be specified in the script `build-docker` in the project repo. Indeed, during the development of the project, the target of test code coverage often needs to be adjusted, for example, it may be gradually increased as the code gets more stable and mature.
 
