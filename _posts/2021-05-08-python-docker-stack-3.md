@@ -149,6 +149,7 @@ data/  log/  src/
 
 In a prod container, we see
 
+```
 [docker-user in docker-project-template-py-zepu] ~
 $ ls
 data/  log/
