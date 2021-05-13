@@ -43,7 +43,7 @@ As individual requests come in, a "batcher" (`Batcher` in the diagram) collects 
 Once the buffer is full or waiting-time is over (even if the buffer is not yet full), the content of the buffer will be placed in a queue (`Queue-batches`). The unit of the data in the queue is "batch", or basically a `list` of individual requests.
 `Preprocessor` takes a batch at a time out of the queue, does whatever preprocessing it needs to do, and puts the preprocessed batch in a queue (`Queue-to-worker`) that is going through the process boundary. The worker process takes one batch at a time out of this queue, makes predictions for this batch by the vectorized model, i.e. `VectorTransformer`, and puts the result in another queue (`Queue-from-worker`). Back in the main process, `Postprocessor` takes one result batch at a time off of this queue, does whatever postprocessing it needs to do, and critically, unpack the batch and distributes individual results to the individual requests, which have been waiting.
 
-When `Preprocessor` puts a preprocessed batch in `Queue-to-worker`, it also out something in correspondence to another queue called `Queue-future-results`. This is where it gets more interesting, and we'll get to it shortly.
+When `Preprocessor` puts a preprocessed batch in `Queue-to-worker`, it also put something in correspondence to another queue called `Queue-future-results`. This is where it gets more interesting, and we'll get to it shortly.
 
 It's useful to highlight that
 

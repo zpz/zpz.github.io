@@ -95,5 +95,5 @@ That's all for this post. Please read the subsequent parts:
 
 1. Part 1: overview (this article).
 2. [Part 2](https://zpz.github.io/blog/python-docker-stack-2/): building images.
-3. Part 3: running containers.
+3. [Part 3](https://zpz.github.io/blog/python-docker-stack-3/): running containers.
 4. Part 4: building images for a separately installable Python package. (In contrast, the images built in "Part 2" do not provide a separately installable package. In order to use the Python package therein, one needs to use these images as base image.)
