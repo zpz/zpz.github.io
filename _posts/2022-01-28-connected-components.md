@@ -33,64 +33,67 @@ def connected_components(components: Iterable[Iterable[int]]):
     return list(nx.connected_components(graph))
 ```
 
-
-```python
-import numpy as np
-import cc_nx
-import cc_py
-import cc_numba
-
-
-COMPONENTS_1 = [
-        (0, 1, 2, 3, 4, 5),
-        (0, 1, 8),
-        (2, 9),
-        (6, 7),
-        (5,),
-        (8, 9),
-        (10, 11, 12, 13),
-        (10, 14, 15),
-        ]
-N_1 = 16
-
-
-COMPONENTS_2 = [
-        (7, 6),
-        (5, 4, 3, 2, 1, 0),
-        (8, 1, 0),
-        (2, 9),
-        (8, 9),
-        (11, 13, 10, 12),
-        (10, 14, 15),
-        (5,),
-        ]
-N_2 = 16
-
-
-def intro_nx():
-    cc = cc_nx.connected_components(COMPONENTS_1)
-    print(cc)
-
-
-def check_nx():
-    cc = cc_nx.connected_components(COMPONENTS_2)
-    print(cc)
-
-
-def check_py(mod):
-    cc = mod.connected_components(COMPONENTS_2, N_2)
-    print(mod.__name__)
-    print(cc)
-
-
-if __name__ == '__main__':
-    intro_nx()
-    check_nx()
-    check_py(cc_py)
-    check_py(cc_numba)
-
+Let's see it in action:
 
 ```
+>>> COMPONENTS = [
+...     (0, 1, 2, 3, 4, 5),
+...     (0, 1, 8),
+...     (2, 9),
+...     (6, 7),
+...     (5,),
+...     (8, 9),
+...     (10, 11, 12, 13),
+...     (10, 14, 15),
+...     ]
+>>> from cc_nx import connected_components
+>>> connected_components(COMPONENTS)
+[{0, 1, 2, 3, 4, 5, 8, 9}, {6, 7}, {10, 11, 12, 13, 14, 15}]
+>>>
+```
+
+This example is illustrated below:
+
+![ex-1](/images/connected-components-1.png)
+
+
+The connected components are depicted at the bottom:
+
+![ex-2](/images/connected-components-2.png)
+
+Please understand the problem in the diagram and compare with the result in the code above.
+
+To make it a little more interesting and realistic, let's
+randomize the order of the elements:
+
+```
+>>> COMPONENTS = [
+...     (7, 6),
+...     (5, 4, 3, 2, 1, 0),
+...     (8, 1, 0),
+...     (2, 9),
+...     (8, 9),
+...     (11, 13, 10, 12),
+...     (10, 14, 15),
+...     (5,),
+...     ]
+>>> connected_components(COMPONENTS)
+[{6, 7}, {0, 1, 2, 3, 4, 5, 8, 9}, {10, 11, 12, 13, 14, 15}]
+>>>
+```
+
+We see the algorithm has sorted the items within each group,
+but there is no particular order between the groups.
+
+This is all clean, concise, and nice. What's surprising is that
+this apparently simple and uninsteresting step of processing turned out
+to be a dominating bottleneck of the entire program, eclipsing all the
+complex data pipelines and machine-learning modeling!
+My hunch was that the `networkx` algorithm was poor crafted,
+and the problem should be relatively easy. In fact, it's an interesting
+little programming problem: it's clearly defined, rather generic, and may have a decent number of applications. Without looking at the `networkx` source code, I started devising my own algorithm to this problem.
+
+That was a year ago. It took a few hours to finalize. The direction was guided by some intuition from the start. It was not too hard. But as I started to work on this post a few days ago, it took some effort to re-understand the algorithm. Furthermore, I've found it hard to find a pedagogical way to explain it.
 
 
 ```python
