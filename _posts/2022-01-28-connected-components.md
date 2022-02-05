@@ -54,12 +54,12 @@ Let's see it in action:
 
 This example is illustrated below:
 
-![ex-1](/images/connected-components-1.png)
+![ex-1](/images/connected-components-1.png){:width="70%" height="70%"}
 
 
 The connected components are depicted at the bottom:
 
-![ex-2](/images/connected-components-2.png)
+![ex-2](/images/connected-components-2.png){:width="70%" height="70%"}
 
 Please understand the problem in the diagram and compare with the result in the code above.
 
@@ -91,9 +91,82 @@ to be a dominating bottleneck of the entire program, eclipsing all the
 complex data pipelines and machine-learning modeling!
 My hunch was that the `networkx` algorithm was poor crafted,
 and the problem should be relatively easy. In fact, it's an interesting
-little programming problem: it's clearly defined, rather generic, and may have a decent number of applications. Without looking at the `networkx` source code, I started devising my own algorithm to this problem.
+little programming problem: it's clearly defined, rather generic, and may have a decent number of applications.
+Without ever looking at the `networkx` source code, I started devising a new algorithm.
 
-That was a year ago. It took a few hours to finalize. The direction was guided by some intuition from the start. It was not too hard. But as I started to work on this post a few days ago, it took some effort to re-understand the algorithm. Furthermore, I've found it hard to find a pedagogical way to explain it.
+
+## The algorithm
+
+It was a year ago, and my own algo took good parts of a day to finalize.
+Let's assume all items across components are represented by sequential numbers
+from `0` up to `n_items - 1`, hence each "component" is represented by a set of
+such numbers. We need to work on these numbers to "union" overlapping components.
+The core of the algorithm is the code below:
+
+
+```python
+from collections import defaultdict
+from typing import Iterable, Sequence
+
+
+def _internal(components: Iterable[Iterable[int]], n_items: int, n_components: int):
+
+    item_markers = [-1 for _ in range(n_items)]     # Component ID of each item
+    component_markers = list(range(n_components))   # Group ID of each component
+
+    for i_component, component_items in enumerate(components):
+        for item in component_items:
+
+            j_component = item_markers[item]
+
+            if j_component < 0:
+                item_markers[item] = i_component
+            else:
+                if component_markers[j_component] == i_component:
+                    continue
+
+                while True:
+                    k_group = component_markers[j_component]
+                    component_markers[j_component] = i_component
+
+                    if k_group == j_component:
+                        break
+
+                    j_component = k_group
+
+    for i in reversed(range(n_components)):
+        if (k := component_markers[i]) != i:
+            component_markers[i] = component_markers[k]
+
+    return item_markers, component_markers
+```
+
+OK, this is not the most understandable code. Let's try it a different way.
+
+An ituition from the start of the effor is that it should be some kind of "sweep and mark"
+algorithm. There is no avoiding walking through each component with its member items,
+but let's try our best to do this walk only once (at least on the surface),
+figure out and write down relations as we go,
+and only do some trivial postprocessing on the findings after the single pass.
+It will likely be quite procedural, with careful book-keeping along the way.
+It should also watch out for careless use of dynamic `lists`: create new ones, `append` to them, and such.
+The human conveniences all take computer time!
+Beware of clever functional style that could triggerer recursion.
+I did not start thinking down that direction at all
+(there could be a solution in that direction but I don't know).
+
+So, one pass through the items. That's the goal.
+
+How do we represent the resultant groups? What are important intermediate relations to record?
+
+Eventually, each group will be represented by its member items, i.e. the sequential numbers of the items.
+However, as a middle step, we could also represent a group by its member *components*.
+Then it will be a cheap postprocess to get the member *items* of the group.
+A potential advantage is that the component-representation of groups will be small,
+and can lend to using dynamic lists at will, if the algo so requires.
+
+
+a new . It took a few hours to finalize. The direction was guided by some intuition from the start. It was not too hard. But as I started to work on this post a few days ago, it took some effort to re-understand the algorithm. Furthermore, I've found it hard to find a pedagogical way to explain it.
 
 
 ```python
