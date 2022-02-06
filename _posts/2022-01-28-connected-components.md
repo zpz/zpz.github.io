@@ -14,13 +14,14 @@ a number of sets, some of which overlap; we'll union any two sets that overlap,
 and do this recursively; in the end, we'll get a number of non-ovrlapping sets,
 and they are called "connected components".
 
-For ease of description, we'll call the sets "components", the final non-overalapping
-sets (or connected components) "groups", and elements in the sets "items".
+For ease of description, we'll call the sets **components**, the final non-overalapping
+sets (or connected components) **groups**, and elements in the sets **items**.
 
 The code uses a python package called [`networkx`](https://github.com/networkx/networkx);
 it's as simple as the following:
 
 ```python
+# module cc_nx
 from typing import Iterable 
 import networkx as nx
 
@@ -52,17 +53,6 @@ Let's see it in action:
 >>>
 ```
 
-This example is illustrated below:
-
-![ex-1](/images/connected-components-1.png){:width="70%" height="70%"}
-
-
-The connected components are depicted at the bottom:
-
-![ex-2](/images/connected-components-2.png){:width="70%" height="70%"}
-
-Please understand the problem in the diagram and compare with the result in the code above.
-
 To make it a little more interesting and realistic, let's
 randomize the order of the elements:
 
@@ -83,80 +73,108 @@ randomize the order of the elements:
 ```
 
 We see the algorithm has sorted the items within each group,
-but there is no particular order between the groups.
+but there is no particular order control between the groups.
 
-This is all clean, concise, and nice. What's surprising is that
+This example is illustrated Figure 1. The items are marked `(1)`, `(2)`,..., the order of their appearances in a walkthrough of the input data. The groups are depicted at the bottom. Please understand the problem in the diagram and compare with the result in the code above.
+
+<figure>
+<img src="{{site.url}}/images/connected-components-2.png" alt="Figure 1" />
+<figcaption>Figure 1</figcaption>
+</figure>
+
+The code is all clean, concise, and nice. What's surprising is that
 this apparently simple and uninsteresting step of processing turned out
 to be a dominating bottleneck of the entire program, eclipsing all the
 complex data pipelines and machine-learning modeling!
-My hunch was that the `networkx` algorithm was poor crafted,
+My hunch was that the `networkx` algorithm was poorly crafted,
 and the problem should be relatively easy. In fact, it's an interesting
 little programming problem: it's clearly defined, rather generic, and may have a decent number of applications.
-Without ever looking at the `networkx` source code, I started devising a new algorithm.
+Without ever looking at the `networkx` source code, I started creating a new algorithm for this problem.
 
+That was a year ago, and my new algo took good parts of a day to finalize. A year later, it took me more time to re-understand the algo and prepare to explain it. Below is my attempt to make the algo understandable to you as well as a future me.
 
 ## The algorithm
 
-It was a year ago, and my own algo took good parts of a day to finalize.
 Let's assume all items across components are represented by sequential numbers
-from `0` up to `n_items - 1`, hence each "component" is represented by a set of
+from `0` up to `n_items - 1`, hence each component is represented by a set of
 such numbers. We need to work on these numbers to "union" overlapping components.
 
-An ituition from the start of the effor is that it should be some kind of "sweep and mark"
+### Intuiations
+
+An ituition from the start of the effort was that it would be some kind of "sweep and mark"
 algorithm. There is no avoiding walking through each component with its member items,
-but let's try our best to do this walk only once (at least on the surface),
-figure out and write down relations as we go,
+but let's try our best to do this walkthrough only once---at least on the surface---figure out and write down relations as we go,
 and only do some trivial postprocessing on the findings after the single pass.
+
+
 It will likely be quite procedural, with careful book-keeping along the way.
-It should also watch out for careless use of dynamic `lists`: create new ones, `append` to them, and such.
-The human conveniences all take computer time!
+Watch out for careless use of dynamic `lists`: create new ones, `append` to them, and so on.
+They are convenient to use, but they all take computer time!
 Beware of clever functional style that could triggerer recursion.
 I did not start thinking down that direction at all
 (there could be a solution in that direction but I don't know).
 
+
+
 So, one pass through the items. That's the goal.
+
+
 
 How do we represent the resultant groups? What are important intermediate relations to record?
 
-Eventually, each group will be represented by its member items, i.e. the sequential numbers of the items.
-However, as a middle step, we could also represent a group by its member *components*.
-Then it will be a cheap postprocess to get the member *items* of the group.
-A potential advantage is that the component-representation of groups will be small,
-and can lend to using dynamic lists at will, if the algo so requires.
 
-Let's stare at diagram 1. Suppose we walk over "component 0" first,
+
+Eventually, each group will be represented by its member items, i.e. the sequential numbers of the items.
+However, as a middle step, we could also represent a group by its *member components*.
+Then it will be a cheap postprocess to get the *member items* of the group.
+
+
+
+A potential advantage is that the component-representation of groups will be small,
+and can lend itself to using any data structure at will, including dynamic lists, if the algo so requires.
+
+
+
+### Initial steps
+
+Let's stare at Figure 1. Note the items are marked by their order in the walkthrough. Suppose we walk over "component 0" first,
 of course it does not overlap with any previous component.
 Then we walk over "component 1", again, it does not overlap with any previous component.
 Then we walk over "component 2" and realize it overlaps with "component 1", hence
-components "2" and "2" belong to a common group.
+components "2" and "1" belong to a common group.
 
 Wait, this is easy to our eyes. But how does the code "see" the overlapping?
-We can have a list to hold a mark for each of the items; see the bar at the top of the diagram.
-When we walk "component 0", we'll record in the list that items `7` and `6` belong to "component 0".
-Then we walk "component 1", and items `5, 4, 3, 2, 1, 0` belong to "component 1".
-Note that none of these spots have been marked by a previous component, i.e. "component 0".
-When we walk "component 2", we come across item `8` first---its spot is not marked yet.
-We would be thinking "component 0" is standing along, "component 1" is standing alone,
+
+The code needs two "marker" lists to help with bookkeeping:
+
+- The item list contains the "component mark" of each item. It's a list of length `n_items`, denoted by `C`. For example, `C[3]` indicates what component the "item 3" belongs to. This mark starts empty (in code we use `-1`), and will be filled up as we walk the data.
+
+- The component list contains the "group mark" of each component. It's a list of length `n_components`, denoted by `G`. For example, `G[2]` indicates what group the "component 2" belongs to. We start with the assumption that all components are disjoint, hence the list starts as `0, 1, ..., n_components - 1`.
+
+
+
+When we walk "component 0", we see `C[7]` are `C[6]` are empty, so we make their values `0`, i.e. component 0. Then we walk "component 1", and assign the value `1` to `C[5]`, `C[4]`, `C[3]`, `C[2]`, `C[1]`, `C[0]`, noticing they have not been marked previously. 
+
+
+
+When we walk "component 2", we come across item `8` first---`C[8]` is not marked yet.
+We would be thinking "component 0" is standing alone, "component 1" is standing alone,
 and "component 2" is also standing alone---so far.
-Then we come across item `1`. Boom! Its spot is already marked by "component 1".
-Then immediately we know "component 2" overlaps with "component 1".
-Not only item `1`, but also item `8`---which looked freestanding by itself---and all items
-of "component 2" that come after component `1` belong to a group shared with "component 1".
+Then we come across item `1`. Boom! Its spot is already marked, as `C[1]` contains value `1`.
+Immediately, we know "component 2" overlaps with "component 1".
+Not only item `1`, but also item `8`---which looked freestanding when we walked it---as well as items
+of "component 2" that will come after item `1` belong to a group shared with "component 1".
 
-At this point we've got to the tricky part: how do we do the relationship book-keeping and all kinds of updates to it?
+At this point we've got to the tricky part: how do we do the relationship bookkeeping and all kinds of updates to it?
 
-Take a look at another situation. Suppose we walk components `0`, then `1`, then `4`, and then `2`.
+Think about another situation. Suppose we walk components `0`, then `1`, then `4`, and then `2`.
 Each of components `0`, `1`, and `4` would appear freestanding.
 But then component `2` would connect the previously freestanding components `1` and `4`,
 triggering an update to previously-found relations.
 
-We have used a list for the items to hold component info of the items.
-Similarly, we'll use a list for the *components* to hold *group* info of the *components*.
-At the beginning, in particular, we'll assume each component is standing alone, and its group
-has the same index number as the component itself, that is,
-this list starts its life as `0, 1, ..., n_components - 1`.
-This means, "component 0" belongs to "group 0", "component 1" belongs to "group 1",
-and so on---until revised later.
+
+
+### Wading through the tricky part
 
 Now let's restart the walk. At "component 0", none of its items are previously marked,
 hence the component's group stays at "0".
@@ -244,8 +262,6 @@ group mark: `G`
     - If `G[m] == m`, then `G[m] <= i`
     - Else, follow this chain until we find the component whose group number is the same as its component number, and we update it to "i".
 
-
-
 ```python
 from collections import defaultdict
 from typing import Iterable, Sequence
@@ -286,7 +302,6 @@ def _internal(components: Iterable[Iterable[int]], n_items: int, n_components: i
 OK, this is not the most understandable code. Let's try it a different way.
 
 a new . It took a few hours to finalize. The direction was guided by some intuition from the start. It was not too hard. But as I started to work on this post a few days ago, it took some effort to re-understand the algorithm. Furthermore, I've found it hard to find a pedagogical way to explain it.
-
 
 ```python
 from collections import defaultdict
@@ -415,8 +430,6 @@ def connected_components(components: Sequence[Sequence[int]], n_items: int):
         groups[i_grp].update(components[i_comp])
 
     return list(groups.values())
-
-
 ```
 
 ```python
@@ -479,9 +492,7 @@ def connected_components(components: Sequence[Sequence[int]], n_items: int):
             np.where(item_markers == grp)[0]
             for grp in np.unique(component_markers)
             ]
-
 ```
-
 
 ```python
 import math
@@ -522,5 +533,4 @@ if __name__ == '__main__':
     mod = {'py': cc_py, 'nu': cc_numba}[args.mod] 
     for n_items in (1000, 10000, 100000, 1000000):
         bench(mod, n_items)
-
 ```
