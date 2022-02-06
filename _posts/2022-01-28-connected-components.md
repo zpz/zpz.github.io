@@ -464,7 +464,7 @@ reference vs compare times (min max mean)
    0.2799 0.3777 0.3075
 ```
 
-The new algo is about 8x as fast as `networkx`.
+Yes, about 8x as fast as `networkx`.
 
 
 ## Can it be faster?
