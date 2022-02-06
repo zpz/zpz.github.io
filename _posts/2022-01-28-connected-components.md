@@ -101,7 +101,149 @@ It was a year ago, and my own algo took good parts of a day to finalize.
 Let's assume all items across components are represented by sequential numbers
 from `0` up to `n_items - 1`, hence each "component" is represented by a set of
 such numbers. We need to work on these numbers to "union" overlapping components.
-The core of the algorithm is the code below:
+
+An ituition from the start of the effor is that it should be some kind of "sweep and mark"
+algorithm. There is no avoiding walking through each component with its member items,
+but let's try our best to do this walk only once (at least on the surface),
+figure out and write down relations as we go,
+and only do some trivial postprocessing on the findings after the single pass.
+It will likely be quite procedural, with careful book-keeping along the way.
+It should also watch out for careless use of dynamic `lists`: create new ones, `append` to them, and such.
+The human conveniences all take computer time!
+Beware of clever functional style that could triggerer recursion.
+I did not start thinking down that direction at all
+(there could be a solution in that direction but I don't know).
+
+So, one pass through the items. That's the goal.
+
+How do we represent the resultant groups? What are important intermediate relations to record?
+
+Eventually, each group will be represented by its member items, i.e. the sequential numbers of the items.
+However, as a middle step, we could also represent a group by its member *components*.
+Then it will be a cheap postprocess to get the member *items* of the group.
+A potential advantage is that the component-representation of groups will be small,
+and can lend to using dynamic lists at will, if the algo so requires.
+
+Let's stare at diagram 1. Suppose we walk over "component 0" first,
+of course it does not overlap with any previous component.
+Then we walk over "component 1", again, it does not overlap with any previous component.
+Then we walk over "component 2" and realize it overlaps with "component 1", hence
+components "2" and "2" belong to a common group.
+
+Wait, this is easy to our eyes. But how does the code "see" the overlapping?
+We can have a list to hold a mark for each of the items; see the bar at the top of the diagram.
+When we walk "component 0", we'll record in the list that items `7` and `6` belong to "component 0".
+Then we walk "component 1", and items `5, 4, 3, 2, 1, 0` belong to "component 1".
+Note that none of these spots have been marked by a previous component, i.e. "component 0".
+When we walk "component 2", we come across item `8` first---its spot is not marked yet.
+We would be thinking "component 0" is standing along, "component 1" is standing alone,
+and "component 2" is also standing alone---so far.
+Then we come across item `1`. Boom! Its spot is already marked by "component 1".
+Then immediately we know "component 2" overlaps with "component 1".
+Not only item `1`, but also item `8`---which looked freestanding by itself---and all items
+of "component 2" that come after component `1` belong to a group shared with "component 1".
+
+At this point we've got to the tricky part: how do we do the relationship book-keeping and all kinds of updates to it?
+
+Take a look at another situation. Suppose we walk components `0`, then `1`, then `4`, and then `2`.
+Each of components `0`, `1`, and `4` would appear freestanding.
+But then component `2` would connect the previously freestanding components `1` and `4`,
+triggering an update to previously-found relations.
+
+We have used a list for the items to hold component info of the items.
+Similarly, we'll use a list for the *components* to hold *group* info of the *components*.
+At the beginning, in particular, we'll assume each component is standing alone, and its group
+has the same index number as the component itself, that is,
+this list starts its life as `0, 1, ..., n_components - 1`.
+This means, "component 0" belongs to "group 0", "component 1" belongs to "group 1",
+and so on---until revised later.
+
+Now let's restart the walk. At "component 0", none of its items are previously marked,
+hence the component's group stays at "0".
+At "component 1", similarly, its group stays at "1".
+For "component 2", at its first item "8", its group stays at "2".
+But at its second item "1", we see the item has been marked by "component 1",
+hence the group of "component 2" should be the same as that of "component 1".
+In the item list, we see "item 1" is marked by "component 1";
+then in the component list, we see "component 1" has group "1".
+Now there is a decision to be made: should we name the common group of components "1" and "2"
+"group 1" or "group 2"?
+
+To be sure, the final group numbers do not need to be consecutive.
+They can be considered categorical labels.
+The componen list looks like this now:
+
+```
+0, 1, 2, ...
+```
+
+and we need to update it to either
+
+```
+0, 1, 1, ...
+```
+
+or
+
+```
+0, 2, 2, ...
+```
+
+We will chose the latter and will revisit this decision in a moment.
+Before moving on, we have to emphasize:
+
+The component list `0, 2, 2, ...` does not mean that the group of "component 1"
+is "group 2". Rather, it means that the group of "component 1" is the group
+of "component 2", while the group of "component 2" is not necessarily
+"group 2" (although it is for now), as it may very well change later.
+
+So we have made this update at "item 1" of "component 2". Then we visit "item 0"
+of "component 2". We see the item has been marked by "component 1".
+Then checking the component mark list, we see "component 1" is marked "2".
+There is no update to be made here, but that's after checking some things that
+are hard to understand now. Let's proceed to the next step.
+
+Next, we walk "component 3". First comes "item 2". We see the item is already marked
+"1", meaning "component 1". Then in the "group list", we see "component 1" is marked
+"2", meaning its group is the same as that of "component 2". This is a critical moment,
+let's take a breather---
+
+while walking "component 3" , we've found it shares group with "component 1", which shares
+group with "component 2". How should we do the bookkeeping?
+
+We can update the group mark of "component 1" to "3". That is in fact optional;
+it's harmless but unnecessary.
+What is necessary (and sufficient) is that we need to update the group mark of "component 2" to "3".
+Why is it so?
+
+We happened to have hit an item marked "component 2".
+It is possible that "component 3" does not overlap with "component 2".
+If we don't take the current opportunity to record that "component 2" shares group
+with "component 3", it's possible that this info will be lost.
+Suppose we mark "component 1" by "3" and move on, then "component 2" stays at group '2",
+and there is no record that compoents "1" and "2" share a group.
+
+On the other hand, it is unnecessary to update the group mark of "component 1",
+as in that case the record continues to indicate that "component 1" shares a group with "component 2".
+
+With this updating scheme, the group mark of "component k" is greater than or equal to "k".
+When it's equal, the group number is also "k". Otherwise, the group number is found by following this chain "up"
+until we find a component whose group mark is equal to its own component number.
+
+To make the updating rule clear,
+
+component mark: `C`
+group mark: `G`
+
+- Suppose we are visiting "item i" of "component j".
+- If the component mark of "i" is missing, then we mark it and proceed to the next item of "component j".
+- If the component mark of "i" is present, with value "k", then we check the group mark of "component k",
+  and find it to be "m".
+  - If `m == k`, then `G[k] <= i`
+  - Else, check `G[m]`;
+    - If `G[m] == m`, then `G[m] <= i`
+    - Else, follow this chain until we find the component whose group number is the same as its component number, and we update it to "i".
+
 
 
 ```python
@@ -142,29 +284,6 @@ def _internal(components: Iterable[Iterable[int]], n_items: int, n_components: i
 ```
 
 OK, this is not the most understandable code. Let's try it a different way.
-
-An ituition from the start of the effor is that it should be some kind of "sweep and mark"
-algorithm. There is no avoiding walking through each component with its member items,
-but let's try our best to do this walk only once (at least on the surface),
-figure out and write down relations as we go,
-and only do some trivial postprocessing on the findings after the single pass.
-It will likely be quite procedural, with careful book-keeping along the way.
-It should also watch out for careless use of dynamic `lists`: create new ones, `append` to them, and such.
-The human conveniences all take computer time!
-Beware of clever functional style that could triggerer recursion.
-I did not start thinking down that direction at all
-(there could be a solution in that direction but I don't know).
-
-So, one pass through the items. That's the goal.
-
-How do we represent the resultant groups? What are important intermediate relations to record?
-
-Eventually, each group will be represented by its member items, i.e. the sequential numbers of the items.
-However, as a middle step, we could also represent a group by its member *components*.
-Then it will be a cheap postprocess to get the member *items* of the group.
-A potential advantage is that the component-representation of groups will be small,
-and can lend to using dynamic lists at will, if the algo so requires.
-
 
 a new . It took a few hours to finalize. The direction was guided by some intuition from the start. It was not too hard. But as I started to work on this post a few days ago, it took some effort to re-understand the algorithm. Furthermore, I've found it hard to find a pedagogical way to explain it.
 
