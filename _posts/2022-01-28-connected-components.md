@@ -51,7 +51,6 @@ Let's see it in action:
 >>> from cc_nx import connected_components
 >>> connected_components(COMPONENTS)
 [{0, 1, 2, 3, 4, 5, 8, 9}, {6, 7}, {10, 11, 12, 13, 14, 15}]
->>>
 ```
 
 To make it a little more interesting and realistic, let's
@@ -70,7 +69,6 @@ randomize the order of the elements:
 ...     ]
 >>> connected_components(COMPONENTS)
 [{6, 7}, {0, 1, 2, 3, 4, 5, 8, 9}, {10, 11, 12, 13, 14, 15}]
->>>
 ```
 
 We see the algorithm has sorted the items within each group,
@@ -383,8 +381,9 @@ Let's verify:
 16
 >>> connected_components(COMPONENTS_2, N_2)
 [{6, 7}, {0, 1, 2, 3, 4, 5, 8, 9}, {10, 11, 12, 13, 14, 15}]
->>>
 ```
+
+Yes.
 
 
 ## Is it fast?
