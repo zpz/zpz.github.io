@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "An Efficient Algorithm for 'Connected Components'"
+title: 'An Efficient Algorithm for "Connected Components"'
 excerpt_separator: <!--excerpt-->
 tags: [python, docker]
 ---
@@ -479,7 +479,7 @@ Look familiar?
 Yes! That's the hallmark of computations that can be moved to `C` and achieve
 nice speedups.
 
-Nowadays, we don't have to move to `C` proper. We can use
+Nowadays, we don't have to move to `C` proper. Instead, we can use
 [numba](https://github.com/numba/numba), a Just-In-Time compiler for numerical functions in Python.
 Our code needs slight changes to take advantage of `numba`:
 
