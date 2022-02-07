@@ -469,6 +469,22 @@ Yes, about 8x as fast as `networkx`.
 
 ## Can it be faster?
 
+I do not see obvious ways to speed up the *algorithm*,
+but there could be ways to speed up the *code*.
+In fact, that is a consideration during the development of the algo.
+Pay attention to the function `_internal`: it's all about navigating and updating
+**numerical vectors** of **fixed sizes**.
+Look familiar?
+
+Yes! That's the hallmark of computations that can be moved to `C` and achieve
+nice speedups.
+
+Nowadays, we don't have to move to `C` proper. We can use
+[numba](https://github.com/numba/numba), a Just-In-Time compiler for numerical functions in Python.
+Our code needs slight changes to take advantage of `numba`:
+
+
+
 ```python
 from typing import Sequence
 
@@ -530,3 +546,41 @@ def connected_components(components: Sequence[Sequence[int]], n_items: int):
             for grp in np.unique(component_markers)
             ]
 ```
+
+When benchmarking `numba` code, remember to exclude the first call from timing
+because the first call will spend time on compilation.
+
+Running similar benchmark code, we got the following:
+
+```
+n_items: 100 n_repeats: 10
+reference vs compare times (min max mean)
+   0.00037 0.00088 0.00046
+   0.00006 0.00015 0.00008
+
+n_items: 1000 n_repeats: 10
+reference vs compare times (min max mean)
+   0.00310 0.02742 0.00643
+   0.00014 0.00031 0.00018
+
+n_items: 10000 n_repeats: 10
+reference vs compare times (min max mean)
+   0.03354 0.06182 0.03884
+   0.00043 0.00069 0.00049
+
+n_items: 100000 n_repeats: 10
+reference vs compare times (min max mean)
+   0.39149 0.73823 0.45375
+   0.00236 0.00354 0.00256
+
+n_items: 500000 n_repeats: 10
+reference vs compare times (min max mean)
+   2.20432 2.88012 2.47352
+   0.01188 0.02387 0.01466
+```
+
+The speedup over `networkx` ranges from 35 for sample size 1000
+to 177 for sample size 100000. In typical situations, such speedup
+will turn a bottleneck to an insignificant step.
+In my case, it did just that.
+
