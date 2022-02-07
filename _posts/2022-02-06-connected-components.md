@@ -9,13 +9,14 @@ A while back I was debugging some legacy code.
 Profiling revealed that a few lines of code that computes
 "connected components" was a major bottleneck.<!--excerpt-->
 
-The concept of "connected components" here is simple: suppose we have
+Here, the concept of "connected components" is simple: suppose we have
 a number of sets, some of which overlap; we'll union any two sets that overlap,
 and do this recursively; in the end, we'll get a number of non-ovrlapping sets,
 and they are called "connected components".
 
-For ease of description, we'll call the sets **components**, the final non-overalapping
-sets (or connected components) **groups**, and elements in the sets **items**.
+To fix the terminology, we'll call the original sets **components**,
+the final non-overalapping sets (i.e. "connected components") **groups**,
+and elements in the sets **items**.
 
 The code uses a python package called [`networkx`](https://github.com/networkx/networkx);
 it's as simple as the following:
@@ -86,11 +87,12 @@ this apparently simple and uninsteresting step of processing turned out
 to be a dominating bottleneck of the entire program, eclipsing all the
 complex data pipelines and machine-learning modeling!
 My hunch was that the `networkx` algorithm was poorly crafted,
-and the problem should be relatively easy. In fact, it's an interesting
+whereas the problem should be relatively easy. In fact, it's an interesting
 little programming problem: it's clearly defined, rather generic, and may have a decent number of applications.
-Without ever looking at the `networkx` source code, I started creating a new algorithm for this problem.
+Without ever looking into the `networkx` source code, I started developing a new algorithm for this problem.
 
-That was a year ago, and my new algo took good parts of a day to finalize. A year later, it took me more time to re-understand the algo and prepare to explain it. Below is my attempt to make the algo understandable to you as well as a future me.
+That was a year ago, and my new algo took good parts of a day to finalize.
+A year later, it took me some more time to regain understanding the algo and prepare to explain it. Below is my attempt to make it understandable to you as well as to my future self.
 
 ## The algorithm
 
@@ -102,9 +104,8 @@ such numbers. We need to work on these numbers to "union" overlapping components
 
 An ituition from the start of the effort was that it would be some kind of "sweep and mark"
 algorithm. There is no avoiding walking through each component with its member items,
-but let's try our best to do this walkthrough only once---at least on the surface---figure out and write down relations as we go,
+but let's try our best to do this walkthrough only once---at least on the surface, figure out and write down relations as we go,
 and only do some trivial postprocessing on the findings after the single pass.
-
 
 It will likely be quite procedural, with careful book-keeping along the way.
 Watch out for careless use of dynamic `lists`: create new ones, `append` to them, and so on.
@@ -113,25 +114,21 @@ Beware of clever functional style that could triggerer recursion.
 I did not start thinking down that direction at all
 (there could be a solution in that direction but I don't know).
 
-
 So, one pass through the items. That's the goal.
 
-
-How do we represent the resultant groups? What are important intermediate relations to record?
-
+How do we represent the resultant groups? What are important intermediate relations to write down?
 
 Eventually, each group will be represented by its member items, i.e. the sequential numbers of the items.
 However, as a middle step, we could also represent a group by its *member components*.
-Then it will be a cheap postprocess to get the *member items* of the group.
-
-
+Then it will be a cheap postprocessing to get the *member items* of the groups.
 A potential advantage is that the component-representation of groups will be small,
 and can lend itself to using any data structure at will, including dynamic lists, if the algo so requires.
 
 
 ### Initial steps
 
-Let's stare at Figure 1. Note the items are marked by their order in the walkthrough. Suppose we walk over "component 0" first,
+Let's stare at Figure 1. Note the items are marked by their order in the walkthrough.
+Suppose we walk over "component 0" first;
 of course it does not overlap with any previous component.
 Then we walk over "component 1", again, it does not overlap with any previous component.
 Then we walk over "component 2" and realize it overlaps with "component 1", hence
@@ -141,72 +138,93 @@ Wait, this is easy to our eyes. But how does the code "see" the overlapping?
 
 The code needs two "marker" lists to help with bookkeeping:
 
-- The item list contains the "component mark" of each item. It's a list of length `n_items`, denoted by `C`. For example, `C[3]` indicates what component the "item 3" belongs to. This mark starts empty (in code we use `-1`), and will be filled up as we walk the data.
+- The "item marker list" contains the "component mark" of each item. It's a list of length `n_items`, denoted by `C`. For example, `C[3]` indicates the component that "item 3" belongs to. This mark starts empty (in the code we'll use `-1`), and will be filled up as we walk the data.
 
-- The component list contains the "group mark" of each component. It's a list of length `n_components`, denoted by `G`. For example, `G[2]` indicates what group the "component 2" belongs to. We start with the assumption that all components are disjoint, hence the list starts as `0, 1, ..., n_components - 1`.
+- The "component marker list" contains the "group mark" of each component. It's a list of length `n_components`, denoted by `G`. For example, `G[2]` indicates the group that "component 2" belongs to. We start with the assumption that all components are disjoint, hence the list starts as `0, 1, ..., n_components - 1`.
 
+When we walk "component 0", we see `C[7]` and `C[6]` are empty, so we make their values `0`, indicating "component 0".
+Then we walk "component 1", and assign the value `1` to `C[5]`, `C[4]`, `C[3]`, `C[2]`, `C[1]`, `C[0]`,
+noticing they have not been marked previously. 
 
-When we walk "component 0", we see `C[7]` are `C[6]` are empty, so we make their values `0`, i.e. component 0. Then we walk "component 1", and assign the value `1` to `C[5]`, `C[4]`, `C[3]`, `C[2]`, `C[1]`, `C[0]`, noticing they have not been marked previously. 
-
-
-When we walk "component 2", we come across "item 8" first---`C[8]` is not marked yet.
-We would be thinking "component 0" is standing alone, "component 1" is standing alone,
-and "component 2" is also standing alone---so far.
+When we walk "component 2", we first come across "item 8", and see `C[8]` is not marked yet.
+At this moment, we would be thinking "component 0" is standing alone,
+"component 1" is standing alone, and "component 2" is also standing alone.
 Then we come across "item 1". Boom! Its spot is already marked, as `C[1]` contains value `1`.
-Immediately, we know "component 2" overlaps with "component 1".
-Not only "item 1", but also "item 8"---which looked freestanding when we walked it---as well as items
-of "component 2" that will come after "item 1" belong to a group shared with "component 1".
+Immediately, we know "component 2" overlaps "component 1".
+Not only "item 1", but also "item 8"---which looked freestanding when we last visited it,
+as well as items of "component 2" that will come after "item 1" all belong to a group shared with "component 1".
 
-At this point we've got to the tricky part: how do we do the relationship bookkeeping and all kinds of updates to it?
+At this point we've reached the tricky part: how do we do the relationship book-keeping and all kinds of updates to it?
 
 Think about another situation. Suppose we walk components "0", then "1", then "4", and then "2".
 Each of components "0", "1", and "4" would appear freestanding.
-But then "component 2" would connect the previously freestanding components "1" and "4", triggering an update to previously-found relations.
-
+But then "component 2" would connect the previously freestanding components "1" and "4",
+triggering an update to previously-determined relations.
 
 
 ### Wading through the tricky part
 
-Now let's restart the walk. At "component 0", none of its items are previously marked, hence `G[0]` stays at `0`. At "component 1", similarly, `G[1]` stays at `1`.
+Now let's restart the walk.
+At "component 0", none of its items are previously marked, hence `G[0]` stays at `0`.
+At "component 1", similarly, `G[1]` stays at `1`.
 For "component 2", at its first item "8", `G[2]` stays at `2`.
-But at its second item "1" (step (10) in Figure 1), we see `C[1]` is `1`, i.e, the item has been marked by "component 1",
-hence the group of "component 2" should be the same as that of "component 1", which is `G[C[1]]`, with value `1`.
+But at its second item "1" (step (10) in Figure 1), we see `C[1]` is `1`,
+i.e, the item has been marked by "component 1",
+hence the group of "component 2" should be the same as that of "component 1",
+which is `G[C[1]]`, with value `1`.
 
 Now there is a decision to be made: should we update `G[1]` to `2`, or `G[2]` to `1`?
 
 To be sure, the final group numbers do not need to be consecutive numbers.
-They can be considered categorical labels. It turns out the group number can be either "rounded up" to `2` or "rounded down" to `1`, with subsequent adjustments accordingly. We choose to round up. Hence, the list `G` is updated from `0, 1, 2, ...` to `0, 2, 2, ...`.
+They can be considered categorical labels.
+It turns out the group number can be either "rounded up" to `2` or "rounded down" to `1`,
+with subsequent adjustments accordingly.
+We choose to round up. Hence, the list `G` is updated from `0, 1, 2, ...` to `0, 2, 2, ...`.
 
-Before moving on, we must emphasize:
+Before moving on, I must emphasize:
 
 > The `G` values `0, 2, 2, ...` does not mean that the group of "component 1"
 > is "group 2". Rather, it means that the group of "component 1" is the group
 > of "component 2", while the group of "component 2" is not necessarily
 > "group 2" (although it is for now), as it may very well change later.
 
-So we have updated the list `G` at "item 1" of "component 2". Then we visit "item 0"
-of "component 2". We see `C[0]` has value `1`, then we see `G[C[0]]` is `2`. There is no update to be made here, but that's after checking some things that
+So we have updated the list `G` while visiting "item 1" of "component 2".
+Then as we visit "item 0" of "component 2", we see `C[0]` has value `1`, and `G[C[0]]` has value `2`.
+There is no update to be made here, but that's after checking some things that
 are hard to understand now. Let's move on.
 
-Next, we walk "component 3". First comes "item 2" (step (12) in  Figure 1). We see `C[2]` has value `1`, meaning "item 2" had been found to belong to "component 1". Then checking the list `G`, we see `G[1]`, or `G[C[2]]`, has value `2`, meaning "item 2" is in "component 1", wich is in the group of "component 2".
+Next, we walk "component 3". First comes "item 2" (step (12) in  Figure 1).
+We see `C[2]` has value `1`;
+then checking the list `G`, we see `G[1]`, or `G[C[2]]`, has value `2`,
+meaning "item 2" is in "component 1", wich is in the group of "component 2".
 
-This is a **critical moment**: while walking "component 3" , we've found it shares group with "component 1", which shares
-group with "component 2". How should we do the bookkeeping?
+This is a **critical moment**: while walking "component 3", we find out that
+it shares group with "component 1", which shares
+group with "component 2". How should we do the book-keeping?
 
-We can update `G[1]` to `3` (from `2`). That is in fact optional; it's harmless but unnecessary. What is necessary and sufficient is that we update `G[2]` to `3` (from `2`).
+We can update `G[1]` from `2` to `3`.
+(Remember, `3` is the index of the current component.)
+In fact, that is optional---it's harmless but unnecessary.
+What is necessary and sufficient is that we update `G[2]` from `2` to `3`.
 
 Why is it so?
 
-We happen to have hit "item 2", which also belongs to "component 1", which in turn indicates the group is that of "component 2". It is possible that "component 3" does not share any item with "component 2" (and indeed that is the case). The current "item 2" could be the only opportunity that tells us "component 3" is connected with "component 2" (and indeed that is the case). If we don't take this opportunity to record that "component 2" shares group with "component 3", it's possible that this info will be lost for ever. Indeed, that's what would happen if we just update `G[1]` to `3` and move on, leaving `G[2]` with value `2`.
+It is possible that "component 3" does not share any item with "component 2" (and indeed that is the case).
+The current "item 2" could be the only opportunity that tells us "component 3" is connected with "component 2"
+(and indeed that is the case).
+If we don't take this opportunity to record that "component 2" shares group with "component 3",
+it's possible that this info will be lost for ever.
+Indeed, that's what would happen if we just update `G[1]` to `3` and move on, leaving `G[2]` with value `2`.
 
-On the other hand, it is unnecessary to update `G[1]` to `3`. Without an update, `G[1]` remains `2`, and continues to indicate that "component 1" shares a group with "component 2".
+On the other hand, it is unnecessary to update `G[1]` to `3`.
+Without an update, `G[1]` remains `2`, and continues to indicate that "component 1" shares a group with "component 2".
 
-The updating schme is clarified in the pseudo-Python code below:
+The updating schme is spelt out in the pseudo-Python code below:
 
 ```
 component_index = comp_i
 for item_idx in item_indices_in_component_i:
-    if C[item_idx] is NULL:
+    if C[item_idx] is None:
         C[item_idx] = comp_i
     else:
         comp_j = C[item_idx]
@@ -219,7 +237,9 @@ for item_idx in item_indices_in_component_i:
                 comp_j = k
 ```
 
-With this updating scheme, the value of `G[k]` either remains `k` or gets bigger, but never gets smaller. When `G[k] == k`, "component k" is in "group k". When `G[k] > k`, then the group of "component k" is found in `G[G[k]]`, and may need to recurse from there.
+In this updating scheme, the value of `G[c]` either remains `c` or gets bigger, but never gets smaller.
+When `G[c] == c`, "component c" is in "group c".
+When `G[c] > c`, the group of "component c" is found in `G[G[c]]`, and may need to recurse from there.
 
 If you are somewhat lost, it may be helpful to follow Figure 2 and work through the steps.
 
@@ -227,6 +247,9 @@ If you are somewhat lost, it may be helpful to follow Figure 2 and work through 
 <img src="{{site.url}}/images/connected-components-3.png" alt="Figure 2" />
 <figcaption>Figure 2</figcaption>
 </figure>
+
+
+### The code
 
 The core of the algorithm is listed below, with detailed annotations.
 
@@ -464,7 +487,12 @@ reference vs compare times (min max mean)
    0.2799 0.3777 0.3075
 ```
 
-Yes, about 8x as fast as `networkx`.
+Yes, about 8x faster than `networkx`.
+That is, of course, a great speedup by any measure.
+
+I would like to think that my algo is near optimal.
+The fact that the `networkx` version does not really blow up as sample size increases
+suggests it's not bad. It's possible that the two algos have the same &Theta; complexity.
 
 
 ## Can it be faster?
@@ -479,10 +507,9 @@ Look familiar?
 Yes! That's the hallmark of computations that can be moved to `C` and achieve
 nice speedups.
 
-Nowadays, we don't have to move to `C` proper. Instead, we can use
-[numba](https://github.com/numba/numba), a Just-In-Time compiler for numerical functions in Python.
-Our code needs slight changes to take advantage of `numba`:
-
+We don't have to move to `C` proper. Instead, we can use
+[Numba](https://github.com/numba/numba), a Just-In-Time compiler for numerical functions in Python.
+Our code is revised slightly to employ `Numba`:
 
 
 ```python
@@ -547,7 +574,11 @@ def connected_components(components: Sequence[Sequence[int]], n_items: int):
             ]
 ```
 
-When benchmarking `numba` code, remember to exclude the first call from timing
+Since this version requires data to be in `Numpy`, we've also vectorized
+other operations in the API function. (Benchmark showed that `_internal`
+is the largest time consumer regardless of these changes.)
+
+When benchmarking `Numba` code, remember to exclude the first call from timing
 because the first call will spend time on compilation.
 
 Running similar benchmark code, we got the following:
@@ -581,6 +612,6 @@ reference vs compare times (min max mean)
 
 The speedup over `networkx` ranges from 35 for sample size 1000
 to 177 for sample size 100000. In typical situations, such speedup
-will turn a bottleneck to an insignificant step.
+will turn a bottleneck to an insignificant middle step.
 In my case, it did just that.
 
