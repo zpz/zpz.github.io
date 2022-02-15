@@ -24,7 +24,7 @@ it's as simple as the following:
 ```python
 # module cc_nx
 
-from typing import Iterable 
+from typing import Iterable
 import networkx as nx
 
 
@@ -144,7 +144,7 @@ The code needs two "marker" lists to help with bookkeeping:
 
 When we walk "component 0", we see `C[7]` and `C[6]` are empty, so we make their values `0`, indicating "component 0".
 Then we walk "component 1", and assign the value `1` to `C[5]`, `C[4]`, `C[3]`, `C[2]`, `C[1]`, `C[0]`,
-noticing they have not been marked previously. 
+noticing they have not been marked previously.
 
 When we walk "component 2", we first come across "item 8", and see `C[8]` is not marked yet.
 At this moment, we would be thinking "component 0" is standing alone,
@@ -565,8 +565,8 @@ def connected_components(components: Sequence[Sequence[int]], n_items: int):
         if (k := component_markers[i]) != i:
             component_markers[i] = component_markers[k]
 
-    item_markers = item_markers[item_markers >= 0]
-    item_markers = component_markers[item_markers]
+    idx = (item_markers >= 0)
+    item_markers[idx] = component_markers[item_markers[idx]]
 
     return [
             np.where(item_markers == grp)[0]
