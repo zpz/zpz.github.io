@@ -1,19 +1,24 @@
 ---
 layout: post
-title: Some Coding Tips for Python Projects
+title: Some High-level Tips for Python Projects
+tags: [Python]
 ---
 
-* [Recommended directory structure for a Python project](#directory-structure)
+Below are tips on a few very high-level and commonly-encountered topics
+in Python software development.
+
+* [Directory structure](#directory-structure)
+* [Naming](#naming)
 * [Documentation](#documentation)
 * [Logging](#logging)
 * [Testing](#testing)
-* [A few more recommendations](#recommendations)
 
 
-## Recommended directory structure for a Python project
+## Directory structure
 <a name="directory-structure"></a>
 
-Suppose the the probject is called 'becool'. The main content of the work is a package called 'becool', and there are some peripheral things supporting it. The recommended directory structure looks like this:
+Suppose the the probject is called 'becool'.
+A largely standard directory structure looks like this:
 
 ```
 becool/
@@ -38,22 +43,76 @@ becool/
   |   |   |-- test_module_d.py
   |-- scripts/
   |-- README.md
+  |-- setup.py
 ```
 
-The project name, 'becool', is also used as the name of a git repo.
+Some highlights:
+
+- The project name, 'becool', is also the name of the `git` repo.
+  Inside this repo, the main content a Python package called 'becool'.
+  Hence the repo and the package are both named after the project.
+  This is a common situation.
+  
+  Although nothing forbids you from having multiple packages in one project (e.g. having a `behot` parallel to `becool`), it's usually a bad idea. The reason is that if `becool` and `behot` closely interact, then maybe they should be one single package. On the other hand, if they do not closely interact, then they are independently deployable, therefore it's better to have them in separate projects (i.e. repos).
 
 - Maintain a clean project file structure, and do not be afraid to adjust or refactor. [Some reference](http://as.ynchrono.us/2007/12/filesystem-structure-of-python-project_21.html); [some more](http://stackoverflow.com/questions/193161/what-is-the-best-project-structure-for-a-python-application).
-- A typical situation is that a Python project contains a single Python package, with the same name as the project. Although nothing forbids you from having multiple packages in one project (i.e. having a `behot` parallel to `becool`), it's usually a bad idea. The reason is that if `becool` and `behot` closely interact, then maybe they should be one single package. On the other hand, if they do not closely interact, then they are independently deployable, therefore it's better to have them in separate projects (i.e. repos).
+
 - The directory `scripts` should not contain `__init__.py`, but may contain files named like `*_test.py` or `test_*.py` for testing functions in the scripts.
-- Ideally, content of `scripts` is mainly short launchers of functions in packages.
-- `archive` is for any code segments that you have deleted from the "main line" but for some reason still want to keep a visible copy for reference. Do not use a "branch" for this purpose.
+
+  Ideally, content of `scripts` is mainly short launchers of functions in packages.
+  For this reason, the scripts often do not need tests.
+
+  This directory may also be called `bin`.
+
+- `archive` is for any code segments that you have deleted from the "main line" but for some reason still want to keep a visible copy for reference. Do not use a *branch* for this purpose.
+
+The center of gravity of the repo is the Python library (or "package") `becool`.
+Scripts are *applications* of this library, and should strive to be short.
+In the scripts, the package `becool` should be treated just like any third-party library.
+In particular, file-path hacks should be avoided.
+
+If you execute the code in a Docker container like I do,
+all dependencies are taken care of by the definition of the Docker image.
+In that case, `setup.py` does not need to worry about installing dependencies.
 
 ### Where to put tests?
 
-There are mainly two approaches. The first is to have `tests` subdirectories within the package `becool`. Specifically, every directory (include the top level `becool`) contains a subdirectory named `tests`, which hosts tests for the modules (i.e. `*.py` files) in its parent directory. The second approach uses a `tests` directory separate from the package being tests. This is the approach shown in the digram above. Both approaches are used by major open source projects.
+There are mainly two approaches. The first is to have `tests` subdirectories within the package `becool`. Specifically, every directory (includeing the top level `becool`) contains a subdirectory named `tests`, which hosts tests for the modules (i.e. `*.py` files) in its parent directory. The second approach uses a `tests` directory separate from the package being tested. This is the approach shown in the digram above. Both approaches are used by major open source projects.
 
-After some time using the first approach, I switched to the second. The switch is prompted by some confusing situation related to running tests against the package that has been "installed" into the system `site-packages`. I can think of two other reasons. First, conceptually, "tests" are not the package's intrinsic functionalities. They are supporting the development of the package, just like "doc" is another supporting component. Second, in substantial projects, one may build some utilities to be used by the test code. In the first approach, the location of this testing infrastructure may become awkward.
+After some time using the first approach, I switched to the second. The switch is prompted by some confusing situations related to running tests against the package that has been "installed" into the system `site-packages`. I can think of two other reasons. First, conceptually, "tests" are *not* the package's intrinsic functionalities. They are supporting the development of the package, just like "doc" is another supporting component. Second, in substantial projects, one may build some utilities to be used by the test code. In the first approach, the location of this testing infrastructure may become awkward.
 
+
+### Alternative structure with a `src` sub-directory
+
+There are discussions about having a `src` directory.
+[This post](https://hynek.me/articles/testing-packaging/) advocates top-level
+directories like `src`, `docs`, `tests`, and a main point for this structure is
+related to testing.
+
+Without carefully reading the arguments, **I have switched to use this structure**.
+I can think of two advantages of this structure:
+
+1. The top-level directories, like `src`, `docs`, `tests`, are more logical and extensible because they are on the same level of abstraction. It feels better.
+
+2. If there are non-Python code, such as Python extensions in C++, this structure can easily grow with the complexity of the codebase. An [experimental package of mine](https://github.com/zpz/experiments.py) of mine is an example.
+
+## Naming and style
+<a name="naming"></a>
+
+For the project and packages, single-word names (or two words without hyphen) are more desirable.
+
+For functions and variables, multi-word, verboses names are fine.
+
+Use 'snake-case' names; see [examples](http://google.github.io/styleguide/pyguide.html#316-naming).
+
+Do study the ``PEP 8`` style guide; pick and stick to a decent style.
+
+I use `yapf` to format Python code. This frees the developer from thinking about good style,
+and help avoids arguments about style between developers. Usually I use the following command:
+
+```
+$ yapf -ir -vv --no-local-style ./
+```
 
 ## Documentation
 <a name="documentation"></a>
@@ -61,7 +120,7 @@ After some time using the first approach, I switched to the second. The switch i
 Do write documentation to help **yourself**, if not others. 
 
 - In-source documentation: make use of Python's docstring mechanism;
-  follow the Google style; [example 1](http://sphinxcontrib-napoleon.readthedocs.org/en/latest/example_google.html), [example 2](http://www.sphinx-doc.org/en/stable/ext/example_google.html#example-google).
+  follow the Google style; [example 1](http://sphinxcontrib-napoleon.readthedocs.org/en/latest/example_google.html), [example 2](https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html).
 - Stand-alone documentation files in source tree (but outside of source code files):
   - `README.md` in the top-level (project root) or second-level (package root) 
     directories.
@@ -73,6 +132,8 @@ Do write documentation to help **yourself**, if not others.
 - Outside of source tree: for documentation aimed at non-developers or users from other groups that require different levels of access control.
 
 ### How to generate documentation using Sphinx
+
+If you go to the length of writing Sphinx documentation, below is my work flow.
 
 1. Basically, let Sphinx take over the `doc` directory in the repo. In `doc/`, run
 
@@ -118,6 +179,10 @@ Do write documentation to help **yourself**, if not others.
 Prefer logging to `print` in most cases.
 
 - The [twelve factor app](http://12factor.net/logs) advocates treating log events as an event stream, always sending the stream to standard output, and leaving capture of the stream into files to the execution environment.
+
+  For capturing logging into files, see my [other post]({{ site.baseurl }}/blog/log-rotation-of-stdout). A more complete example appears in
+  [another post]({{ site.baseurl}}/blog/poor-mans-CD-system-using-Docker/#pipeline-and-pyscript).
+
 - In all modules that need to do logging, always have this, and only this, at the top of the module:
 
   ```python
@@ -203,15 +268,4 @@ You do not need to `import pytest` unless you explicitly use `pytest` in the cod
 
 See [Directory Structure](#directory-structure) above for where to put the test files.
 
-
-## A few more recommendations
-<a name="recommendations"></a>
-
-- Use 'snake-case' names; see [examples](https://google.github.io/styleguide/pyguide.html?showone=Naming#Naming).
-
-- Use an IDE. ``PyCharm`` is a decent choice.
-
-- Do study the ``PEP 8`` style guide.
-
-- Keep learning.
-
+(Lightly revised on December 21, 2018.)

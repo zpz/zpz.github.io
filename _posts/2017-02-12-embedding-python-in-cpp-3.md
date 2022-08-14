@@ -1,19 +1,23 @@
 ---
 layout: post
 title: Embedding Python in C++, Part 3
+excerpt_separator: <!--excerpt-->
+tags: [Python, C++]
 ---
 
-In this post I will explore passing STL containers to Python in a variety of ways. The focus is to sort out how to pass containers by value and by reference. The `pybind11` documentation is not totally clear to me on this topic, therefore some of the findings below were obtained via trials.
+In this post I will explore passing STL containers to Python in a variety of ways. The focus is to sort out how to pass containers by value and by reference.
+<!--excerpt-->
+The `pybind11` documentation is not totally clear to me on this topic, therefore some of the findings below were obtained via trials.
 
 There are two headers relevant to this topic: `pybind11/stl.h` and `pybind11/stl_bind.h`. `stl.h` is responsible for converting a C++ STL container to a native Python object (such as `list` and `dict`) by copying, whereas `stl_bind.h` is responsible for passing a C++ STL container to Python in a custom class (not the native `list` and `dict`) that provides Pythonic behavior (such as `__getitm__` and `__setitem__`). This custom class "wraps" the C++ STL container and avoids data copying, hence enables "passing by reference" between C++ and Python.
 
 
 
-# Python testing code
+## Python testing code
 
 The Python code below operations on the objects that are passed in from C++. However, this is pure Python code unaware that it is going to be called from C++. This module resides in package `py4cc`. The package is found on `PYTHONPATH` and is located independently of the C++ code that would call it.
 
-```
+```python
 # File `stl.py` in package `py4cc`.
 
 def show(x, pp=True):
@@ -49,7 +53,7 @@ def mapadd(x):
 
 
 
-# Scenario 1: cast a C++ object to a Python object
+## Scenario 1: cast a C++ object to a Python object
 
 I tested two situations. First, explicitly cast a C++ STL container to a Python object, then call the objects Python methods. The code remains in C++; there is no Python packages or modules involved. Second, pass a C++ STL container to a Python function (called in C++ code), then inspect the input argument in the Python code of said function.
 
@@ -57,7 +61,7 @@ Note that `stl.h` is `#include`d. Also not that at one point the Python module l
 
 Code:
 
-```
+```cpp
 // File `test_cast.cc` in `cc11bind`.
 
 #include "Python.h"
@@ -134,7 +138,7 @@ int main()
 
 Output:
 
-```
+```bash
 $ ./test_cast 
 Python type: list
   __repr__: [1, 3, 5]
@@ -178,13 +182,13 @@ Observations:
 
 
 
-# Scenario 2: pass by value
+## Scenario 2: pass by value
 
 I verified that with `#include "pybind11/stl.h"`, passing is by value, as demonstrated below.
 
 Code:
 
-```
+```cpp
 // File `test_copy.cc` in `cc11bind`.
 
 #include "Python.h"
@@ -244,7 +248,7 @@ int main()
 
 Output:
 
-```
+```bash
 $ ./test_copy 
 before `cumsum`, in C++ --- [1, 3, 5]
 before `cumsum`, in Python --- <class 'list'>: [1, 3, 5]
@@ -269,13 +273,13 @@ Observations:
 
 
 
-# Binding code to enable pass-by-reference
+## Binding code to enable pass-by-reference
 
 In order to pass a C++ STL container to Python "by reference", one needs to "bind" the container type of interest to a certain Python class (define in C++ using `pybind11` machinery), which "wraps" the STL container without data copying, and provides methods expected by Python code.
 
 `pybind11` provides these binding classes. One needs to expose these classes to Python in a Python module that is written in C++. The following is my module for this purpose. The file is located in the package `py4cc2`. Compile this file to create a shared library in the package folder, and `import` it in Python or C++.
 
-```
+```cpp
 // File `_cc11binds.cc` in package `py4cc`.
 
 // Compile:
@@ -303,13 +307,13 @@ PYBIND11_PLUGIN(_cc11binds) {
 ```
 
 
-# Scenario 3: pass by reference, but watch out!
+## Scenario 3: pass by reference, but watch out!
 
 The code below demonstrates various combinations of `#include "pybind11/stl.h"` and `#include "pybind11/stl_bind.h"`, with variables passed by name (`x`) or by pointer (`&x`). It often demonstrates the (non)effect of `const` on objects that get passed to Python.
 
 Code:
 
-```
+```cpp
 // File `test_ref` in `cc11bind`.
 
 #include "Python.h"
@@ -425,7 +429,7 @@ int main()
 
 Output:
 
-```
+```bash
 $ ./test_ref 
 === pass as `&x` ===
 
@@ -496,12 +500,12 @@ Observations regarding C++ const correctness:
 
 
 
-# Scenario 4: pass-by-reference in named arguments
+## Scenario 4: pass-by-reference in named arguments
 
 
 Code:
 
-```
+```cpp
 // File `test_kwargs.cc` in `cc11bind`.
 
 #include "Python.h"
@@ -576,7 +580,7 @@ int main()
 
 Output:
 
-```
+```bash
 $ ./test_kwargs 
 before `cumsum`, in C++ --- [1, 3, 5]
 before `cumsum`, in Python --- <class 'py4cc2._cc11binds.IntVector'>: IntVector[1, 3, 5]
@@ -608,7 +612,7 @@ Observations (some code and output are not shown):
 
 1. Pass-by-reference does not work in named arguments, i.e, the following do not work:
 
-   ```
+   ```cpp
    auto kwargs = py::dict(py::arg("x") = &x);
    f(**kwargs);
 
@@ -621,7 +625,7 @@ Observations (some code and output are not shown):
 
 2. Pass-by-reference works in "star" arguments
 
-   ```
+   ```cpp
    auto args = py::list();
    args.append(&x);
    f(*args);
@@ -639,4 +643,4 @@ The solution is to tell `pybind11` "I am giving you a *reference*; the object's 
 
 `pybind11` provides methods `ref_count`, `inc_ref`, and `dec_ref` for every `py::object` instance. If you are in the mode of digging, these methods can show you the dynamics.
 
-The complete code is available at [https://github.com/zpz/cppy/tree/master/py4cc](https://github.com/zpz/cppy/tree/master/py4cc/) and [https://github.com/zpz/cppy/tree/master/cc11bind](https://github.com/zpz/cppy/tree/master/cc11bind/).
+<!-- The complete code is available at [https://github.com/zpz/cppy/tree/master/py4cc](https://github.com/zpz/cppy/tree/master/py4cc/) and [https://github.com/zpz/cppy/tree/master/cc11bind](https://github.com/zpz/cppy/tree/master/cc11bind/). -->

@@ -1,9 +1,13 @@
 ---
 layout: post
-title: "Speeding up Python with Cython: an Appetizer"
+title: "Speeding up Python 147x with Cython"
+excerpt_separator: <!--excerpt-->
+tags: [Python]
 ---
 
-When evaluating Python for enterprise projects, the concern over its ultimate speed arises from time to time. Of course, fundamental speed-up comes only from a better algorithm or better approach to the problem at hand. However, on the programming language level, Python is indeed lacking in ultimate speed due to many, many hoops in service of its nature as a very high-level and dynamic language.
+When evaluating Python for enterprise projects, the concern over its ultimate speed arises from time to time. 
+<!--excerpt-->
+Of course, fundamental speed-up comes only from a better algorithm or better approach to the problem at hand. However, on the programming language level, Python is indeed lacking in ultimate speed due to many, many hoops in service of its nature as a very high-level and dynamic language.
 
 There are a number of ways to diminish this problem. Three primary ways are
 
@@ -15,12 +19,11 @@ The first approach assumes the existence of a third-party library (which could b
 
 In this post I will showcase the third approach. Specifically, I will speed-tune a very simple function through a number of phases, first within pure Python but ultimately using Cython. The main objective of the post is to demonstrate the ease and potential benefit of Cython to total newbies.
 
-Set it up
-=========
+## Set it up
 
 Below is the function we need to speed up. Given a UNIX timestamp, the function returns the week-day, a number between 1 and 7 inclusive. Suppose in a real-world project we need to call this function a large number of times, and the time spent on this function has proven to be considerable.
 
-```
+```python
 # file 'version01.py'.
 
 from datetime import datetime
@@ -38,7 +41,7 @@ def weekdays(ts):
 
 We have created a Python package named `pycc` and made it visible on `PYTHONPATH`. The above is the module `version01` in this package. We also created a utility module `profiler` in package `pycc` with the content as follows:
 
-```
+```python
 # profiler.py
 
 import time
@@ -125,7 +128,7 @@ def lineprofiled(*funcs):
 The function `weekdays` is our "entry point" for testing. The testing code is as follows.
 
 
-```
+```python
 # test1.py
 
 from pycc import version01 as mymod
@@ -149,7 +152,7 @@ The decorator `timed` prints the execution time of the function that is decorate
 
 Running it, we get the execution time of `version01`:
 
-```
+```bash
 $ python test1.py 
 
 Function ` do_them ` took  0.8810409489960875 seconds to finish
@@ -158,13 +161,12 @@ Function ` do_them ` took  0.8810409489960875 seconds to finish
 Later we will adapt `test1.py` to time other versions, and will simply rename the script according to the version, e.g. `test2.py`, but will not show the slightly adapted testing code.
 
 
-Make it faster
-==============
+## Make it faster
 
 `version01` is clean and clear. However, when we think hard about the speed, we realize that figuring out the week-day from a timestamp involves quite a few steps of arithmetic. We could improve the speed by doing the time difference from a reference timestamp, for which we know the week-day. This could work because, unlike date, week proceeds strictly regularly.
 
 
-```
+```python
 # file 'version02.py'.
 
 from datetime import datetime
@@ -207,7 +209,7 @@ def weekdays(ts):
 
 Time it:
 
-```
+```bash
 $ python test2.py
 
 Function ` do_them ` took  0.9040505230077542 seconds to finish
@@ -216,7 +218,7 @@ Function ` do_them ` took  0.9040505230077542 seconds to finish
 Sorry, not faster than the baseline version. Before working on the speed, let's verify the result is correct by adding a function to verify results against the baseline:
 
 
-```
+```python
 # file 'version01.py', continued:
 
 def verify(timestamps, results):
@@ -232,7 +234,7 @@ Now on to speed tuning.
 In `version02`, we create the reference time by querying the current time at object initiation. Upon rethinking, it becomes clear that we don't need to query any 'current' time---we just need to use a fixed and convenient reference time.
 
 
-```
+```python
 # file 'version03.py'.
 
 def weekday(ts):
@@ -260,7 +262,7 @@ def weekdays(ts):
 
 Time it:
 
-```
+```bash
 $ python test3.py 
 
 Function ` do_them ` took  0.5782521039946005 seconds to finish
@@ -269,15 +271,14 @@ Function ` do_them ` took  0.5782521039946005 seconds to finish
 A speed-up from 0.88 to 0.58 seconds. Modest but real.
 
 
-And faster
-==========
+## And faster
 
 Make a copy of `version03.py` and call the new file `version04.pyx`. Make no change whatsoever to the actual code. The `pyx` extension indicates it's a Cython source file.
 
 Compile it using the Python package `easycython`:
 
 
-```
+```bash
 $ easycython version04.pyx
 Warning: Extension name 'version04' does not match fully qualified name 'pycc.version04' of 'version04.pyx'
 Compiling version04.pyx because it changed.
@@ -292,7 +293,7 @@ gcc -pthread -shared build/temp.linux-x86_64-3.5/version04.o -L/usr/local/lib -l
 
 This creates file `version04.c`, which is a C translation of the Cython source code. The C source is then compiled into a dynamic library, named with extension `so`.
 
-```
+```bash
 $ ls
 __init__.py    build/        version03.py                                version04.html
 __pycache__/   version01.py  version04.c                                 version04.pyx
@@ -302,7 +303,7 @@ _cc11binds.cc  version02.py  version04.cpython-35m-x86_64-linux-gnu.so*
 After this point, `version04` can be used just like any regular Python module. Let's time it:
 
 
-```
+```bash
 $ python test4.py 
 
 Function ` do_them ` took  0.29948758000682574 seconds to finish
@@ -313,8 +314,7 @@ Simply handing `version03` off to Cython without code change has led to a speed-
 In general, one should not expect huge performance gains by simply compiling with Cython. The recommended approach is to stay in pure Python as much as one can, identify speed bottlenecks, turning the bottleneck operations into Cython, and further tune the (short) Cython code.
 
 
-And faster
-==========
+## And faster
 
 Cython is a Python compiler that understands static type declarations and use them to generat C code. The first rule of using Cython is basically the following:
 
@@ -323,7 +323,7 @@ Cython is a Python compiler that understands static type declarations and use th
 Variable types are declared via the `cdef` keyword. Argument types are declared in the C function style.
 
 
-```
+```python
 # file 'version05.pyx'.
 
 def weekday(long ts):
@@ -355,7 +355,7 @@ def weekdays(ts):
 Compile it using `easycython` and then time it:
 
 
-```
+```bash
 $ python test5.py 
 
 Function ` do_them ` took  0.03563655300240498 seconds to finish
@@ -364,12 +364,11 @@ Function ` do_them ` took  0.03563655300240498 seconds to finish
 Execution time was reduced from 0.30 to 0.036 seconds. Nice.
 
 
-And faster
-==========
+## And faster
 
 If a function's return value is a simple C type, it can be beneficial to declare that as well.
 
-```
+```python
 # file 'version06.pyx'.
 
 cdef long weekday(long ts): 
@@ -381,7 +380,7 @@ Note that we have replaced `def` by `cdef` in order to declare return type of th
 
 Now time it:
 
-```
+```bash
 $ python test6.py 
 
 Function ` do_them ` took  0.019489386002533138 seconds to finish
@@ -390,13 +389,12 @@ Function ` do_them ` took  0.019489386002533138 seconds to finish
 The execution time is further reduced from 0.036 to 0.019 seconds.
 
 
-And faster
-==========
+## And faster
 
 Let's see whether Numpy can help us go further.
 
 
-```
+```python
 # file 'version07.pyx'.
 
 cimport numpy as np
@@ -414,7 +412,7 @@ def weekdays(np.ndarray[np.int64_t, ndim=1] ts):
 Compile it as before. The testing code becomes the following.
 
 
-```
+```python
 # file 'test7.py'
 
 import numpy as np
@@ -441,7 +439,7 @@ if __name__ == "__main__":
 
 Time it:
 
-```
+```bash
 docker-user@pycctalk in ~/work/src/pycctalk
 $ python test7.py 
 
@@ -453,7 +451,7 @@ Slower! How come?
 Well, it's known that accessing individual elements of a Numpy array is *inefficient*. (Numpy is great for *vectorized* operations.) Individual Numpy element access is happening repeatedly in `weekdays`. One idea is to turn those *Numpy element accesses* to *C array element accesses*. We'll also take this opportunity to change the Numpy interface `np.ndarray[np.int64_t, ndim=1]` to the more elegant, and more general, [*memoryview*](https://docs.python.org/3/library/stdtypes.html#memoryview)  interface (related to [buffer protocol](https://docs.python.org/3/c-api/buffer.html)).
 
 
-```
+```python
 # file 'version08.pyx'.
 
 import numpy as np
@@ -478,20 +476,20 @@ def weekdays(long[:] ts):
 
 Accordingly in the testing script, the line
 
-```
+```python
 z = do_them(timestamps)
 ```
 
 is replaced by
 
-```
+```python
 z = do_them(memoryview(timestamps))
 ```
 
 Compile as usual. Then time it:
 
 
-```
+```bash
 docker-user@pycctalk in ~/work/src/pycctalk
 $ python test8.py
 
@@ -501,20 +499,19 @@ Function ` do_them ` took  0.011735767999198288 seconds to finish
 Another significant speed-up, from 0.019 to 0.012 seconds. This speed-up is achieved because a `memoryview` and a Numpy array exposes their data in a contiguous memory block, hence element access of them can be translated to element access into C arrays. Granted, this version is not strictly comparable with the baseline version due to the use of Numpy.
 
 
-And faster
-==========
+## And faster
 
 Besides `version08.c`, which is a C translation of `version08.pyx`, another file `version08.html` was generated for us. This file is useful for diagnostics during development. The content of this file is shown below.
 
-![cython_html_yellow](../images/cython_html_yellow.png)
+![cython_html_yellow](/images/cython_html_yellow.png)
 
 The yellow-highlighted lines indicate Python, as opposed to C, operations. These are potential spots for speed tuning. Clicking on the yellow lines will show the corresponding C code translations.
 
-![cython_html_yellow_expanded](../images/cython_html_yellow_expanded.png)
+![cython_html_yellow_expanded](/images/cython_html_yellow_expanded.png)
 
 In function `weekday`, we realize that the integer division and remainder functions `//` and `%` are Python functions. However, since the operands are all integers, we might use C functions of these operations for hopeful speed gain. This effect is achieved by the Cython decorator `cdivision`.
 
-```
+```python
 # file 'version09.pyx'
 
 import numpy as np
@@ -535,7 +532,7 @@ def weekdays(long[:] ts):
 
 Let's see the generated HTML file:
 
-![cython_html_cdivision](../images/cython_html_cdivision.png)
+![cython_html_cdivision](/images/cython_html_cdivision.png)
 
 The yellow highlights in function `weekday` are gone. The previous yellow lines, which were translated to multiple lines of C code each, are now translated to a single line of C code each.
 
@@ -543,7 +540,7 @@ The function `weekdays` also has several yellow lines. Since they are outside of
 
 Now let's see how it performs:
 
-```
+```bash
 $ python test9.py 
 
 Function ` do_them ` took  0.005960473994491622 seconds to finish
@@ -552,13 +549,12 @@ Function ` do_them ` took  0.005960473994491622 seconds to finish
 Speed doubled from 0.012 to 0.006 seconds due to the one-line code addition for a decorator.
 
 
-Use `setup.py` to compile
-=========================
+## Use `setup.py` to compile
 
 We have used `easycython` to compile the Cython source codes. This works fine for simple scenarios. For more complex and precise control, a `setup.py` file is the way to go. For the record, here is the `setup.py` file we can use for our case.
 
 
-```
+```python
 # file 'setup.py'.
 
 debug = False
@@ -603,18 +599,17 @@ setup(
 
 To compile using `setup.py`, do
 
-```
+```bash
 $ python setup.py build_ext --inplace
 ```
 
 
-Line-profile Cython code
-========================
+## Line-profile Cython code
 
 Notice that `setup.py` contains a flag `debug = False`. If it is set to `True`, we can profile the Cython code to deep dive and identify potential bottlenecks. Let's try it.
 
 
-```
+```python
 # file 'version10.pyx'.
 
 import numpy as np
@@ -638,14 +633,14 @@ There are two changes in this code. First, the functions we intend to profile ar
 
 Remember to set `debug` to `True` in `setup.py`, and then compile with
 
-```
+```bash
 $ python setup.py build_ext --inplace
 ```
 
 The testing script is changed to specify what functions to profile:
 
 
-```
+```python
 # file 'test10.py'.
 
 import numpy as np
@@ -675,7 +670,7 @@ if __name__ == "__main__":
 
 Now that Cython is compiled and profiling is set up, let's see it at work:
 
-```
+```bash
 $ python test10.py
 Timer unit: 1e-06 s
 
@@ -740,8 +735,7 @@ Line #      Hits         Time  Per Hit   % Time  Line Contents
 The line profiling reveals no clear bottleneck, suggesting that we are probably close to the limit of what we can do. After all, `weekday` is now a simple function in C.
 
 
-Epilogue
-========
+## Epilogue
 
 So, with some basic use of Cython (and a little bit of Numpy), we reduced the execution time of a piece of short, innocent-looking Python code from 0.88 seconds to 0.006 seconds. That's a 147X speed-up. If the baseline version needs 24 hours to run, the optimized version will be done in 10 minutes.
 

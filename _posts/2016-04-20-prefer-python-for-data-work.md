@@ -1,12 +1,15 @@
 ---
 layout: post
 title: Why I Prefer Python to R for Data Work
+excerpt_separator: <!--excerpt-->
+tags: [R, data-science]
 ---
 
 I first encountered S-PLUS (a commercial distribution of S---R's parent) in 2000,
 and used it for statistics coursework for a few years.
 From 2004 through 2011, I used R daily and intensively for implementing my research
 on statistical methodologies.
+<!--excerpt-->
 At its core, R is a decent functional (as opposed to object-oriented) language.
 I have made use of some more "serious" sides of it including
 
@@ -254,16 +257,18 @@ In picking a language for substantial software development, I agree with [John D
 > I’d rather do mathematics in a general programming language than do general programming in a mathematical language.
 >
 
-With my decent knowledge in R, if I continue using it,
-I would necessarily continue investing time learning
+Even with my decent knowledge in R, if I continue using it,
+I would necessarily continue investing more time learning
 the language, the ecosystem, and particular packages.
-The same amount of investment put on a **general-purpose, main-stream** language, like Python, I would advance my skill much better as an IT professional, even if certain tasks would have been easier to handle in R than in Python.
+With the same amount of investment made on a **general-purpose, main-stream** language,
+like Python, I would advance my skill much better as an IT professional,
+even if certain tasks would have been easier to handle in R.
 
 ### R tends to be slow
 
 Both R and Python are slow.
-Both have very fast package (that do the actual work in `C` or `C++` or `Fortran`).
-R tends to be slower.
+Both have very fast packages (that do the actual work in `C` or `C++` or `Fortran`).
+But R tends to be slower.
 One reason is its pass-by-value semantics.
 To be safe, a lot of copying is made that is not always necessary.
 Until a very recent version (3.1?),
@@ -289,7 +294,7 @@ This is not saying that R is very bad at the peripheral tasks.
 This is saying that **you want to minimize language diversity in your project**.
 
 Even in this case, I would definitely have careful team review and supervision.
-Introducing one more major language into a system is always a serious matter.
+Introducing one more **major** language into a system is always a serious matter.
 I have not encountered a case where this is necessary.
 
 (This note was written in an attempt to dissuade my team from introducing R into the system.)

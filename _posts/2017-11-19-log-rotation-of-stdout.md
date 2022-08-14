@@ -1,6 +1,7 @@
 ---
 layout: post
 title: "Simple Rotating Log Capture"
+tags: [logging]
 ---
 
 This post concerns simple text-dump logs, not "data logs" that are sent to, say, Kafka for structured treatment.
@@ -16,7 +17,7 @@ for UNIX services.
 
 Suppose our program `myapp` logs to `stdout` or `stderr` periodically, simply do
 
-```
+```sh
 myapp 2>&1 | multilog s1000000 n10 /path-to-log/myapp
 ```
 
@@ -32,7 +33,7 @@ and older ones are discarded; this is controlled by the argument `n10`.
 If we want to observe the terminal printout in the meantime,
 we can do
 
-```
+```sh
 myapp 2>&1 | tee >(multilog s1000000 n10 /path-to-log/myapp)
 ```
 
@@ -58,18 +59,19 @@ including
 I chose the `multilog` in `daemontools` because this is a package (called `daemontools`) that is
 `apt-get` installable on `debian`.
 
-If your program is in Python, I had some [tips on Python logging here](https://zpz.github.io/python-project-tips/#logging)
+If your program is in Python, I had some 
+[tips on Python logging here]({{ site.baseurl }}/blog/python-project-tips/#logging)
 that will work well with such `stdout` capturing.
 
 If you want to observe the terminal printout as well as capture it in files, you may be tempted to use
 
-```
+```sh
 python myapp.py 2>&1 | tee >(multilog s1000000 n10 /path-to-log/myapp)
 ```
 
 To your surprise, you won't see printouts. Instead, you need to use
 
-```
+```sh
 python -u myapp.py 2>&1 | tee >(multilog s1000000 n10 /path-to-log/myapp)
 ```
 

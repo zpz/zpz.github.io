@@ -1,11 +1,14 @@
 ---
 layout: post
 title: Embedding Python in C++, Part 1
+excerpt_separator: <!--excerpt-->
+tags: [Python, C++]
 ---
 
 Python has very good inter-operability with C and C++.
 (In this post I'll just say C++ for simplicity.)
 There are two sides to this "inter-op".
+<!--excerpt-->
 The first is that the main program is in Python;
 certain performance critical parts are coded in C++, or provided by an existing C++ library,
 which is called from the main Python program.
@@ -24,14 +27,13 @@ However, most of them either already support "embedding", or could do so with mo
 Recently I needed to do both "extending" and "embedding". I plan to first write about my "embedding" experience in a few articles.
 
 
-Setting the stage
-=================
+## Setting the stage
 
 My main program is a realtime, low-latency, high-throughput, online sevice in C++. In a critical component, it runs some sophisticated modeling or "machine learning" algorithm to make a decision. I decided to develop the model algorithm in Python in order to tap into its excellent data stack and modeling ecosystem. As a result, I needed to build an interface between the Python and C++ codes. To fix ideas, the Python code is listed below.
 
 The meat of the computation is carried out by the class `Engine`:
 
-```
+```python
 """
 Module `py4cc_1.py` in package `py4cc`.
 """
@@ -69,7 +71,7 @@ class Engine:
 
 The class `Driver` provides C++-facing API. It handles receiving task submissions, providing results to queries, and managing a process pool, in which each process runs a `Engine` instance:
 
-```
+```python
 """ 
 Module `py4cc_1.py` in package `py4cc1` (continued).
 """
@@ -176,8 +178,7 @@ A few points of note:
 
 
 
-Testing it in Python
-====================
+## Testing it in Python
 
 I wrote a Python program to verify that it works. The test code primarily does the following things:
 
@@ -188,8 +189,7 @@ I wrote a Python program to verify that it works. The test code primarily does t
 The test code is available at [https://github.com/zpz/cppy/tree/master/py4cc/tests](https://github.com/zpz/cppy/tree/master/py4cc/tests). The test program ran with no issues.
 
 
-First attempt at using raw Python/C API
-=======================================
+## First attempt at using raw Python/C API
 
 A natural approach uses Python's C API. The official documentation has a [tutorial](https://docs.python.org/3/extending/index.html) as well as a [reference manual](https://docs.python.org/3/c-api/index.html).
 
@@ -197,7 +197,7 @@ To use the API, one must first `#include "Python.h"`, which on my Linux box is l
 
 Before anything python related, one needs to call
 
-```
+```cpp
 Py_Initialize();
 ```
 
@@ -206,25 +206,25 @@ to initiate the Python interpreter.  After that, the prevalent business is to cr
     
 For example,
 
-```
+```cpp
 PyObject * pModule = PyImport_Import(PyUnicode_FromString("py4cc1.py4cc"));
 ```
 
 does what the following accomplishes in Python:
 
-```
+```python
 import py4cc1.py4cc
 ```
 
 Top-level functions, classes, and variables in this module are then accessed as attributes of the object `pModule`. For example, to instantiate a `Driver` object, we need to first get the `Driver` class object,
 
-```
+```cpp
 PyObject * driver_cls = PyObject_GetAttrString(pModule, "Driver");
 ```
 
 Then initialize a `Driver` object using the API that calls a Python function (because we would do `Driver()` to initiate a `Driver` object as if `Driver` is just a function):
 
-```
+```cpp
 PyObject * noargs = PyTuple_New(0);
 PyObject * kwargs = PyDict_New();
 PyDict_SetItemString(kwargs, "max_tasks", PyLong_FromLong(64));
@@ -236,7 +236,7 @@ As one can see, the API functions are kind of straightforward. But boy, is that 
     
 My C++ header file that corresponds to the Python API is listed below.
 
-```
+```cpp
 // File `cc4py_1.h` in `cc4py`.
 
 #ifndef CC4PY_H_
@@ -323,7 +323,7 @@ A good part of the corresponding source file is listed below.
 The complete code is available at [https://github.com/zpz/cppy/tree/master/cc4py/cc4py_1.cc](https://github.com/zpz/cppy/tree/master/cc4py/cc4py_1.cc).
 You can get a feel of the tedious yet predictable style of this approach from this code sample.
 
-```
+```cpp
 // File `cc4py_1.cc` in `cc4py`.
 
 #include "cc4py.h"
@@ -450,17 +450,15 @@ Engine::~Driver()
 ```
 
 
-Testing it in C++
-=================
+## Testing it in C++
 
 The test program for the C++ implementation is analogous to the Python test. An important difference is that the C++ threads need to lock up the code blocks that call `Driver` methods because, unlike Python, C++ threads do execute simultanously on a multi-core machine. If multiple threads access the single Python interpreter at the same time, the program will crash.
 
-The source code is available at
-[https://github.com/zpz/cppy/tree/master/cc4py/test_1.cc](https://github.com/zpz/cppy/tree/master/cc4py/test_1.cc).
+<!-- The source code is available at
+[https://github.com/zpz/cppy/tree/master/cc4py/test_1.cc](https://github.com/zpz/cppy/tree/master/cc4py/test_1.cc). -->
 
 
-Looking back and forth
-======================
+## Looking back and forth
 
 Let me emphasize that **the C++ implementation listed above is not complete**; it's just a start. For one thing, there are typically multiple slightly different functions in the API that do the same thing, therefore I expect the implementation can be somewhat cleaner.
 

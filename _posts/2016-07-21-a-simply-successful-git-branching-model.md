@@ -1,11 +1,14 @@
 ---
 layout: post
 title: A Simply Successful Git Branching Model
+excerpt_separator: <!--excerpt-->
+tags: [git]
 ---
 
 I'm designing this Git workflow based on the well known
-[A successful Git branching model](http://nvie.com/posts/a-successful-git-branching-model/) of Vincent Driessen
-(known as the **gitflow**), but somewhat simpler, hence the title.
+[A successful Git branching model](http://nvie.com/posts/a-successful-git-branching-model/)
+of Vincent Driessen (known as the **gitflow**), but somewhat simpler, hence the title.
+<!--excerpt-->
 The target user is a smallish team (an *organization* in Github terminology) that
 
 - does not practice rigorous continuous integration or automated testing,
@@ -93,7 +96,7 @@ This is where daily development happens.
 
    If no one is collaborating on branch **feature-a** with you, `rebase` has some advantages: 
 
-   ```
+   ```bash
    git checkout develop
    git pull
    git checkout feature-a
@@ -104,7 +107,7 @@ This is where daily development happens.
 
    If you are not the only one working on branch **feature-a**, or if you're nervous about `rebase`, then use `merge`:
 
-   ```
+   ```bash
    git checkout develop
    git pull
    git checkout feature-a

@@ -1,5 +1,7 @@
 ---
-layout: default
+layout: blog
+title: Blog
+permalink: /blog/
 ---
 
 <div class="posts">
@@ -12,6 +14,7 @@ layout: default
         {{ post.excerpt }}
       </div>
 
+      {{ post.date | date: "%B %e, %Y" }}&nbsp;&nbsp;
       <a href="{{ site.baseurl }}{{ post.url }}" class="read-more">Read More</a>
     </article>
   {% endfor %}
