@@ -7,7 +7,7 @@ code {
 // TODO: looks like this block is not used.
 // In particular, the horizontal scrolling is needed.
 // Color is taken from the class .highlight below.
-pre .highlight {
+pre.highlight {
   white-space: pre;
   overflow: auto;
   word-wrap: normal; /* horizontal scrolling */
@@ -18,6 +18,10 @@ pre .highlight {
   color: #d0d0d0;
 }
 
+pre code {
+  background: #202020;
+  color: #d0d0d0;
+}
 
 .highlight .lineno {
   padding-left: 10px;
