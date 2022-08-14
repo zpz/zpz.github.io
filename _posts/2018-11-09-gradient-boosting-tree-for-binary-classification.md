@@ -68,7 +68,7 @@ $$
 $$
 
 The task is to *revise* this model so that the loss function is decreased.
-However, I'm not going to revise $F_m$ directly in any way; 
+However, I'm not going to revise $F_m$ directly in any way;
 instead, I'm going to **add** another model, a "delta model" or "incremental model", to it,
 so that the model will become
 
@@ -88,7 +88,7 @@ by the amount of $f_{m+1}(x_i)$. This in turn changes the value of the loss func
 This is how $f_{m+1}$ is connected to the loss function,
 and this connection is the key to finding $f_{m+1}$.
 
-Now I flip the question. 
+Now I flip the question.
 Instead of asking how $f_{m+1}$ (however it is determined) changes $\hat{y}_i$ and the loss,
 I ask: in order to decrease the loss, how do I want each $\hat{y}_i$ to change?
 
@@ -277,7 +277,7 @@ $$\begin{equation}\label{logistic}
 $$
 
 Here, $x$ represents the predictor(s), the response $y$ is binary-valued (either 0 or 1),
-$\hat{y}$ takes any real value on $(-\infty, \infty)$, 
+$\hat{y}$ takes any real value on $(-\infty, \infty)$,
 and $\hat{p}$ is a real value between 0 and 1, interpreted as the probality of $y=1$.
 It is reasonable to say that the $\hat{y}$ here is not trying to *predict* the binary response $y$,
 because the two are comparable in neither the meaning nor the value.
@@ -600,7 +600,7 @@ so, indeed, the initial `y_pred` is the additive part corresponding to
 an estimate of the global probability (the fraction of positive responses).
 This is a reasonable starting point.
 
-The main steps in `_fit_stage` are as follows. 
+The main steps in `_fit_stage` are as follows.
 
 1. Compute `residual = self.loss_.negative_gradient(y, y_pred)`.
 This `residual` is $y - \hat{p}$, i.e. negative of the gradient derived in $(\ref{boost-gradient})$.
@@ -631,7 +631,7 @@ This does two things:
       By now it has been fully determined and appended to the ensemble of base learners.
 
    2. Increment `y_pred` of observation $i$ by `self.learning_rate` times the leaf value
-      in which this observation falls. 
+      in which this observation falls.
       This is the "boosting" step. The learning rate shrinks the prediction of the new tree
       to prevent overfitting.
       The updated vector `y_pred` is the return value
