@@ -9,7 +9,7 @@ Suppose we need to process a data stream in a sequence of steps (or "operations"
 
 The interesting part is that I/O-bound operations spend much time waiting on something external of the CPU. If we naively call the I/O function and wait for its result, much of the time is wasted, because during the time of waiting, the CPU may very well do something else useful. The solution, of course, is concurrency---let multiple calls to the I/O function be active at the same time, so that their waiting periods overlap. Nowadays a good way to do I/O concurrency is using `asyncio`. In this post, I'll develop a few utilities to make this task nice and easy.
 
-# Async generators and async iterators
+## Async generators and async iterators
 
 Since much of the code will run in an async context, I'll require the data stream to be an **async iterable**, that is, we're going to consume the data with `aync for ...` whenever we can. As it turned out, we need a little more than async *iterable*---we need the data stream to be an async *iterator* so that we don't have to be in the `async for ...` loop. Instead, we could request "the next item" by calling `data.__anext__()` directly. That gives the algorithm a lot of extra flexibility and, fortunately, this extra doesn't require a lot of extra effort.
 
@@ -49,7 +49,7 @@ In [11]: import asyncio
 In [12]: async def foo():
     ...:     async for z in y:
     ...:         print(z)
-    ...: 
+    ...:
 
 In [13]: asyncio.run(foo())
 0
@@ -63,10 +63,10 @@ In [13]: asyncio.run(foo())
 8
 9
 
-In [14]: 
+In [14]:
 ```
 
-# Transformers
+## Transformers
 
 I'm going to call the mechanism that handles I/O operations a `transformer`.
 It takes data items out of an `AsyncIterator`, makes concurrent calls to an async I/O function, and outputs the results in the same order that the data items come in.
@@ -156,7 +156,7 @@ each of which independently and repeatedly fetches items from the input stream, 
 As such, the input stream is not consumed in an `async for ...` loop. Rather, each task directly calls `__anext__` of the input stream (which is an `AsyncIterator`) to request the next item whenever the task is ready to work on the next item. The task ends when `__anext__` indicates the input stream has run out.
 
 The tasks are launched by `asyncio.create_task` and scheduled by the event loop to run "soon".
-Let's say `workers` is 4, then 4 copies of the function `_process` are running concurrently. At the end, we take care to `await` on each task to be sure they finish up properly. 
+Let's say `workers` is 4, then 4 copies of the function `_process` are running concurrently. At the end, we take care to `await` on each task to be sure they finish up properly.
 
 Once one task sees the end of `in_stream` in `_process`,
 it needs to prevent other tasks from calling `in_stream.__anext__`. This is achieved by an indicator variable `finished` and a lock.
@@ -197,7 +197,7 @@ async def test_transform():
 
 It does.
 
-# Unordered transformers
+## Unordered transformers
 
 In `transform`, a queue holds `Future` objects in order to maintain order of the elements.
 If the processing of a later element has finished sooner,
@@ -269,7 +269,7 @@ Second, the indicator `NO_MORE_DATA` is not placed in the output queue as soon a
 The reason is that at this moment there may very well be items being processed in other tasks. When they are done and their results enter the queue, they would appear *after* `NO_MORE_DATA`! The solution is to enqueue `NO_MORE_DATA` by the very last task that shuts down, and just before it shuts down.
 
 
-# Sinks
+## Sinks
 
 A slight variant to "transformer" is a "sink", which processes data but does not produce results. Or, more accurately, we don't care to receive the results. Examples include writing data to files, inserting to databases, sending out emails, etc.
 The verb for a "sink" is "drain", so that's the name of the function. It simply uses `transform` or `unordered_transform` and ignores their output.
@@ -312,7 +312,7 @@ The function reports progress every 1000 elements.
 This is not needed in `transform` and `unordered_transform` because the downstream consumer can do that in its own way.
 
 
-# Batch and un-batch
+## Batch and un-batch
 
 Some operations can take advantage of "vectorization", i.e., processing many items at once at higher efficiency than processing them one by one. A small convenience function can bundle up input elements ahead of such vectorized functions.
 
@@ -345,7 +345,7 @@ async def unbatch(in_stream: AsyncIterable):
 Note that `batch` and `unbatch` do not have to be used in pairs.
 It all depends on the actual need of the pipeline.
 
-# Buffers
+## Buffers
 
 Look at the function `batch` above.
 It does not consider situations like:
@@ -382,7 +382,7 @@ async def buffer(in_stream: AsyncIterable, buffer_size: int):
 If the downstream consumer is slow, the function `buff` will proactively collect items from `in_stream` and stuff `out_stream` to its capacity.
 
 
-# Put it all together
+## Put it all together
 
 Let's cook up an example to show off all these utilities.
 
@@ -419,12 +419,12 @@ print('sum is', mysink.sum)
 
 Before running it, let's figure out what the result should be.
 
-1. `batch` will bundle `x` into 
+1. `batch` will bundle `x` into
    - `[1, 5, 6]`
    - `[3, 7, 9]`
    - `[2, 4, 4]`
    - `[5, 1]`
-2. `diff_shoot` will find the ranges of these bundles to be 
+2. `diff_shoot` will find the ranges of these bundles to be
 `5 (= 6 - 1)`, `6 (= 9 - 3)`, `2 (= 4 - 2)`, `4 (= 5 - 1)`, and produce the ranges
    - `range(5)`
    - `range(6)`
@@ -444,46 +444,46 @@ All in all, the final sum should be 64.
 Run this in `ipython`:
 
 ```python
-In [3]: 
+In [3]:
 
-   ...: 
+   ...:
    ...: x = [1, 5, 6, 3, 7, 9, 2, 4, 4, 5, 1]
-   ...: 
+   ...:
    ...: async def diff_shoot(batch):
    ...:     return list(range(max(batch) - min(batch)))
-   ...: 
-   ...: 
+   ...:
+   ...:
    ...: async def scale(x):
    ...:     return x * 2
-   ...: 
-   ...: 
+   ...:
+   ...:
    ...: class Sink:
    ...:     def __init__(self):
    ...:         self.sum = 0
-   ...: 
+   ...:
    ...:     async def __call__(self, x):
    ...:         self.sum += x
-   ...: 
-   ...: 
-   ...: 
+   ...:
+   ...:
+   ...:
    ...: batches = batch(stream(x), 3)
    ...: shots = transform(batches, diff_shoot, workers=3)
    ...: flat = buffer(unbatch(shots), 10)
    ...: doubled = unordered_transform(flat, scale, workers=2)
-   ...: 
+   ...:
    ...: mysink = Sink()
-   ...: 
+   ...:
    ...: n = asyncio.run(drain(doubled, mysink, workers=1))
    ...: print('processed', n, 'elements')
    ...: print('sum is', mysink.sum)
-   ...: 
+   ...:
 processed 17 elements
 sum is 64
 
-In [4]: 
+In [4]:
 ```
 
-# Final thoughts
+## Final thoughts
 
 A very nice feature of these functions is that the `AsyncIterator` type unites them all. The output of one can be the input of another. As a result, they can be used in a "pipe" fashion in flexible ways.
 
