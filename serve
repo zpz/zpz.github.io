@@ -7,6 +7,6 @@ docker run --rm -it \
     --label=jekyll \
     -v $(pwd):/srv/jekyll \
     -p 127.0.0.1:4000:4000 \
-    jekyll/jekyll:4.0 \
+    jekyll/jekyll:4.2.0 \
     jekyll serve
 
