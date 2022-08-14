@@ -254,7 +254,7 @@ If you are somewhat lost, it may be helpful to follow Figure 2 and work through 
 The core of the algorithm is listed below, with detailed annotations.
 
 
-{% highlight python linenos %}
+```python
 # module cc_py
 
 from collections import defaultdict
@@ -370,7 +370,7 @@ def _internal(components: Iterable[Iterable[int]], n_items:int, n_components: in
             component_markers[i] = component_markers[k]
 
     return item_markers, component_markers
-{% endhighlight %}
+```
 
 The function `_internal` returns the list `G`.
 It is a simple matter to finish up the algo by the following API function:
