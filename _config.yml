@@ -50,11 +50,7 @@ url:
 # then add in the baseurl here, like this: "/repository-name"
 baseurl: ""
 
-#
-# !! You don't need to change any of the configuration flags below !!
-#
-
-paginate: 10
+# paginate: 10
 
 # permalink: /:title/
 # Switch this on after some time:
@@ -65,6 +61,7 @@ permalink: /blog/:title/
 # version: v3.8.3
 
 markdown: kramdown
+highlighter: rouge
 
 # Jekyll 3 now only supports Kramdown for Markdown
 kramdown:
@@ -73,15 +70,18 @@ kramdown:
   # Jekyll 3 and GitHub Pages now only support rouge for syntax highlighting
   syntax_highlighter: rouge
   syntax_highlighter_opts:
-    default_lang: python
-    # Use existing pygments syntax highlighting css
-    css_class: 'highlight'
+    # default_lang: python
+    css_class: 'highlight'  # in _sass/_highlights.scss
     span:
       line_numbers: false
     block:
       line_numbers: true
-
-highlighter: rouge
+      start_line: 1
+      # line_id: 'line-%i'
+      line_class: 'lineno'
+      table_class: 'rouge-line-table'
+      # gutter_class: 'rouge-gutter'
+      # code_class: 'rouge-code'
 
 # Set the Sass partials directory, as we're using @imports
 sass:
@@ -93,7 +93,7 @@ sass:
 plugins:
   - jekyll-sitemap # Create a sitemap using the official Jekyll sitemap gem
   - jekyll-feed # Create an Atom feed using the official Jekyll feed gem
-  - jekyll-paginate
+  # - jekyll-paginate
 
 # Exclude these files from your production _site
 exclude:

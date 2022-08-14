@@ -27,7 +27,7 @@ async def stream(x: Iterable) -> AsyncIterator:
 
 Let's verify the types of things:
 
-```python
+```
 In [2]: x = range(10)
 
 In [3]: y = stream(x)
@@ -43,7 +43,7 @@ Note that although `stream` is an *async* function, we don't call it with `await
 
 Sure enough, we can consume the elements of an `AsyncIterator` (or just `AsyncIterable`) with `async for`:
 
-```python
+```
 In [11]: import asyncio
 
 In [12]: async def foo():
@@ -443,7 +443,7 @@ All in all, the final sum should be 64.
 
 Run this in `ipython`:
 
-```python
+```
 In [3]:
 
    ...:

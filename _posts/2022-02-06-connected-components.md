@@ -375,7 +375,7 @@ def _internal(components: Iterable[Iterable[int]], n_items:int, n_components: in
 The function `_internal` returns the list `G`.
 It is a simple matter to finish up the algo by the following API function:
 
-```
+```python
 # module cc_py
 
 def connected_components(components: Sequence[Sequence[int]], n_items: int):
@@ -415,7 +415,7 @@ For a rough benchmark, we need a way to make up some random data of somewhat rea
 We used the code below to do that:
 
 
-```
+```python
 # module bench
 
 import math
