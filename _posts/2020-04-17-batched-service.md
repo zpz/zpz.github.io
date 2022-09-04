@@ -2,7 +2,7 @@
 layout: post
 title: "Service Batching from Scratch"
 excerpt_separator: <!--excerpt-->
-tags: [python]
+tags: [Python, concurrency]
 ---
 
 TensorFlow Serving has "batching" capability because the model inference can be "vectorized".

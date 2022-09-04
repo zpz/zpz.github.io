@@ -2,7 +2,7 @@
 layout: post
 title: 'An Efficient Algorithm for "Connected Components"'
 excerpt_separator: <!--excerpt-->
-tags: [python, docker]
+tags: [Python, algorithms]
 ---
 
 A while back I was debugging some legacy code.

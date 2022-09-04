@@ -2,7 +2,7 @@
 layout: post
 title: "A Docker Stack for Personal and Team Projects in Python --- Part 3"
 excerpt_separator: <!--excerpt-->
-tags: [python, docker]
+tags: [Python, Docker]
 ---
 
 [Part 1](https://zpz.github.io/blog/python-docker-stack-1/) and [Part 2](https://zpz.github.io/blog/python-docker-stack-2/) of this mini-series have gaven an overview of my Docker stack for Python projects and examined the image building process. This post will dive into *using the image* or, in other words, running the Docker image(s) during development and production.<!--excerpt-->

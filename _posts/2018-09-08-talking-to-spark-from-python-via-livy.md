@@ -2,7 +2,7 @@
 layout: post
 title: Talking to Spark from Python via Livy
 excerpt_separator: <!--excerpt-->
-tags: [spark]
+tags: [Spark, Livy, Python]
 ---
 
 In order to use [Spark](https://spark.apache.org) in my self-sufficient Docker containers without worrying about access to a Spark client environment (to use `spark-submit`, for example), I found the Apache [Livy](https://livy.incubator.apache.org/) project. Livy provides a REST service for interacting with a Spark cluster.

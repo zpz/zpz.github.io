@@ -2,7 +2,7 @@
 layout: post
 title: A Poor Man's Continuous Deployment System Using Docker
 excerpt_separator: <!--excerpt-->
-tags: [docker]
+tags: [Docker, CICD]
 ---
 
 I've implemented a "continuous deployment" (CD) system centered on Docker.

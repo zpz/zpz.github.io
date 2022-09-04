@@ -2,7 +2,7 @@
 layout: post
 title: "Speeding up Python with C++ and pybind11"
 excerpt_separator: <!--excerpt-->
-tags: [python]
+tags: [Python, C++]
 ---
 
 In two previous posts, I described using

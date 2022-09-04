@@ -3,7 +3,7 @@ layout: post
 title: Understanding Word Embedding by word2vec
 use_math: true
 excerpt_separator: <!--excerpt-->
-tags: [nlp]
+tags: [machine-learning, NLP, word2vec]
 ---
 
 I read a few sources explaining "word embedding", especially as carried out by the `word2vec` algorithm.

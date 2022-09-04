@@ -2,7 +2,7 @@
 layout: post
 title: "A Docker Stack for Personal and Team Projects in Python --- Part 1"
 excerpt_separator: <!--excerpt-->
-tags: [python, docker]
+tags: [Python, Docker]
 ---
 
 I started using Docker in early 2016. After learning it for a month or two, I have never done code development outside of Docker again. My Docker workflow has evolved over time. The main drivers have been designing for teamwork. So far I have had three major design rounds, which happened in early 2018 (for one team), early 2019 (for another team), and late 2020 (major simplifying overhaul). By now, I feel the stack has reached a relatively stable and good stage (as I [have felt previously](https://zpz.github.io/blog/poor-mans-CD-system-using-Docker/)!), so I decided to write down the main ideas of it.<!--excerpt--> The stack for my personal experiments are available on Github, which will be referred to in the post. The principles are the same as those for a team stack.

@@ -2,7 +2,7 @@
 layout: post
 title: "Some Resources for Learning Python"
 excerpt_separator: <!--excerpt-->
-tags: [python]
+tags: [Python]
 ---
 
 Here I'm not trying to make a comprehensive list.

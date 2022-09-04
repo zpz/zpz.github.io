@@ -2,7 +2,7 @@
 layout: post
 title: '"Insert Overwrite Into Table" with Amazon Athena'
 excerpt_separator: <!--excerpt-->
-tags: [aws, data-engineering]
+tags: [AWS, Athena, data-engineering]
 ---
 
 For a long time, Amazon Athena does not support `INSERT` or CTAS (`Create Table As Select`) statements.

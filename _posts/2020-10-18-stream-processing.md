@@ -2,7 +2,7 @@
 layout: post
 title: "Simple Stream Processing With I/O Operations"
 excerpt_separator: <!--excerpt-->
-tags: [python]
+tags: [Python, concurrency]
 ---
 
 Suppose we need to process a data stream in a sequence of steps (or "operations" or "functions"). If all the steps are CPU-bound, then we just chain them up. Each data item goes through the CPU-bound functions one by one; the CPU is fully utilized. Now, if one or more of the steps involve I/O, typical examples being disk I/O or http service calls, things get interesting.<!--excerpt-->

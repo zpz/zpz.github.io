@@ -2,7 +2,7 @@
 layout: post
 title: Why I Prefer Python to R for Data Work
 excerpt_separator: <!--excerpt-->
-tags: [R, data-science]
+tags: [R, data-science, Python]
 ---
 
 I first encountered S-PLUS (a commercial distribution of S---R's parent) in 2000,

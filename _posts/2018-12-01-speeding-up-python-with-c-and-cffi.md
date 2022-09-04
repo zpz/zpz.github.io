@@ -2,7 +2,7 @@
 layout: post
 title: "Speeding up Python with C and cffi"
 excerpt_separator: <!--excerpt-->
-tags: [python]
+tags: [Python, C, cffi]
 ---
 
 In [an appetizer served back in April, 2017]({{ site.baseurl }}/blog/speeding-up-python-with-cython/), I demonstrated using `Cython` to achieve 100+ times speed-up to numerical bottlenecks in Python code. I have not used Cython in actual projects since then. Instead, I have had some experiences using `C++` to extend Python. Compared with Cython, which is deeply intertwined with Python, using a separate language to write Python extensions has advantages, such as <!--excerpt-->

@@ -2,7 +2,7 @@
 layout: post
 title: "Speeding up Python 147x with Cython"
 excerpt_separator: <!--excerpt-->
-tags: [Python]
+tags: [Python, Cython]
 ---
 
 When evaluating Python for enterprise projects, the concern over its ultimate speed arises from time to time. 
