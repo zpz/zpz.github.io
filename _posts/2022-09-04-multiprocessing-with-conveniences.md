@@ -218,7 +218,7 @@ We can verify this behavior by a small script:
 
 ```python
 import logging
-import multiprocessing as mp 
+import multiprocessing as mp
 
 
 logger = logging.getLogger('mytest')
@@ -264,7 +264,7 @@ I don't know what mechanism printed the two messages in the child process. Obvio
 
 Two solutions appear possible. The first is to send the main-process logging settings into the child process and enact them there. The second is to send the child-process logs back into the main process and handle them here.
 
-For the first option, I didn't research how to send and enact logging settings. But there are other difficulties. For example, if user has configured logs to be written to a file, how do we deal with file states in the child process? What if there are multiple child processes? What about the order of log messages produced by multiple processes? Will the messages be messed up, hijacked half-sentence as we have fondly seen? Another example, suppose the user has configured logs to be sent to some remote service, and the handler involves credentials ans such, which have all been taken care of in the main process. How can we "send and enact" these settings in a child process?
+For the first option, I didn't research how to send and enact logging settings. But there are other difficulties. For example, if user has configured logs to be written to a file, how do we deal with file states in the child process? What if there are multiple child processes? What about the order of log messages produced by multiple processes? Will the messages be messed up, hijacked half-sentence as we have fondly seen? Another example, suppose the user has configured logs to be sent to some remote service, and the handler involves credentials and such, which have all been taken care of in the main process. How can we "send and enact" these settings in a child process?
 
 These make the first option an unlikely solution. So let's go with the second one. I'm going to implement a general solution and then simply use it in the `SpawnProcess` above, while the solution is also usable independent of this `SpawnProcess`.
 
