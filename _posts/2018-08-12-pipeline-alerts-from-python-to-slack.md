@@ -2,7 +2,7 @@
 layout: post
 title: Sending Pipeline Alerts from Python to Slack
 excerpt_separator: <!--excerpt-->
-tags: [Python, monitoring]
+tags: [Python, monitoring, Slack]
 ---
 
 For recurrent pipelines, it is a common requirement to send notifications,

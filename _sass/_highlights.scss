@@ -1,11 +1,13 @@
 
 code {
   font-family:'Bitstream Vera Sans Mono','Courier', monospace;
+  background: #ddd8d8;
+  color: #2f3135;
 }
 
 
-// TODO: looks like this block is not used.
-// In particular, the horizontal scrolling is needed.
+// This block does not have effect in local preview,
+// but does in Github pages.
 // Color is taken from the class .highlight below.
 pre.highlight {
   white-space: pre;
@@ -29,6 +31,7 @@ pre code {
   margin-right: 20px;
   border-right: gray solid 1px;
   color: darkkhaki;
+  text-align: right;
 }
 
 

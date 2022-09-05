@@ -2,7 +2,7 @@
 layout: post
 title: "A Docker Stack for Personal and Team Projects in Python --- Part 2"
 excerpt_separator: <!--excerpt-->
-tags: [python, docker]
+tags: [Python, Docker]
 ---
 
 [Part 1 of this mini-series](https://zpz.github.io/blog/python-docker-stack-1/) gave an overview of my Docker stack for Python projects. In this post, I'll dive into the image-building part of the stack. This part is mostly specific to Python.

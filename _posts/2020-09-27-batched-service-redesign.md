@@ -2,7 +2,7 @@
 layout: post
 title: "Service Batching from Scratch, Again"
 excerpt_separator: <!--excerpt-->
-tags: [python]
+tags: [Python, concurrency]
 ---
 
 In [a previous post]({{ site.baseurl }}/blog/batched-service/), I described an approach to serving machine learning models with built-in "batching". The design has been used in real work with good results. Over time, however, I have observed some pain points and learned some new tricks. Finally, I got a chance to sit down and make an overhaul to it from scratch.<!--excerpt-->
