@@ -123,7 +123,6 @@ class SpawnProcess(multiprocessing.context.SpawnProcess):
             except BaseException as e:
                 result_and_error.send(None)
                 result_and_error.send(_ExceptionWithTraceback(e, e.__traceback__))
-                raise
             else:
                 result_and_error.send(z)
                 result_and_error.send(None)
@@ -158,8 +157,7 @@ class SpawnProcess(multiprocessing.context.SpawnProcess):
 A few things to note. First, it does not use a queue. Instead, a `Pipe` is used for this simple case.
 It will always contain two values upon completion of `run`, namely the result and the exception.
 
-Second, in `run`, after capturing the exception and put it in the pipe, the exception is still `raise`d, to let
-the parent class do whatever it usually does in the case of crashes.
+Second, in `run`, after capturing the exception and put it in the pipe, the exception is *not* `raise`d, hence the parent behavior in case of crashes is suppressed. (The parent behavior is to print out the exception info and traceback. But I was bitten by total silence more than once. Things are tricky.) This is consistent with the behavior of `concurrent.futures.ProcessPoolExecutor`. One should either call `result()` or check `exception()` in the main process. If the exception is printed in the child process, it's a duplicate of the printout in the main process, leading to some mess, if not confusion.
 
 Third, new methods `done`, `result`, and `exception` have been provided to mimic the usage of `concurrent.futures.Future`. Both `result` and `exception` wait for completion with optional timeout, which can be quite handy.
 
@@ -324,13 +322,8 @@ The background thread `self._t` will be started in `_start_in_main_process`. The
         root.setLevel(logging.DEBUG)
         qh = logging.handlers.QueueHandler(self._q)
         root.addHandler(qh)
-```
 
-For signal that the child process has terminated and there will be no more log messages, the child process places a sentinel in the queue at the end. The closing method of the context manager is the perfect place for such concerns:
-
-```python
     def _stop_in_other_process(self):
-        self._q.put(None)
         self._q.close()
 ```
 
@@ -357,9 +350,14 @@ Now let's implement the main-process:
 
     def _stop_in_main_process(self):
         assert self._t is not None
+        self._q.put(None)
         self._t.join()
         self._t = None
 ```
+
+The closing method of the context manager places a sentinel in the queue to signal
+that the child process has terminated and there will be no more log messages.
+This sentinel is checked by the background thread to stop waiting for more messages and exit.
 
 Here it's worthwhile to talk a little bit about the "level" in logging. There are two places to specify "level": on a logger (i.e. what is returned by `logging.getLogger`) and on a handler. If not specified, the default is `WARNING` for a logger, and `DEBUG` (or everything) for a handler. In `_start_in_other_process`, we set `DEBUG` level to the root logger. If no other loggers in the child process gets its level specified, which should be the case, all logging messages on all levels are sent to the queue handler, which accepts everything and puts it in the queue. This is necessary because the child process has no idea what logging level the end-user (in the main process) decides to use. On the other hand, in `_logger_thread` in the main process, a message is filtered according to the level of its logger. This is as if the message has been issued in the *main* process by the same logger object via the same command (`logger.warning(...)`, `logger.info(...)`, `logger.debug(...)`, etc). If the call is below the effective level of the logger, the message is not sent to its handlers at all.
 
@@ -400,7 +398,7 @@ Running it, we get
 
 as expected.
 
-How does this implementation differ from `logging.handlers.QueueListener`? There are three differences. First, `QueueListener` requires `handlers` in its `__init__`. This implementation leaves it open and flexible. For one thing, it could be the case that different loggers have different handlers. `ProcessLogger` leaves that to be determined on the fly. Second, `QueueListener` uses a *daemon* thread to process the messages. I'm a little nervous about daemon threads. I think context manager is good. Third, `QueueListener` places a sentinel in the queue in the main process, via `put_nowait`, whereas `ProcessLogger` does that in the child process using `put`. This presumably has stronger guarantee that the sentinel won't cut before a valid logging message.
+How does this implementation differ from `logging.handlers.QueueListener`? There are two differences. First, `QueueListener` requires `handlers` in its `__init__`. This implementation leaves it open and flexible. For one thing, it could be the case that different loggers have different handlers. `ProcessLogger` leaves that to be determined on the fly. Second, `QueueListener` uses a *daemon* thread to process the messages. I'm a little nervous about daemon threads. I think context manager is good.
 
 ## Handling logging in the custom `Process` class
 
