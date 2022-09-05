@@ -1,16 +1,16 @@
 ---
 layout: post
-title: Python multiprocessing with a few added conveniences
+title: A few Convenience Utilities for Python Multiprocessing
 excerpt_separator: <!--excerpt-->
 tags: [Python, concurrency]
 ---
 
 In my use of Python's `multiprocessing` module, from time to time I'm bothered
 by the lack of two convenience features, one concerning exception visibility,
-and the other concerning logging. I've created a subclass of `Process` to add these convenience capabilities.<!--excerpt-->
+and the other concerning logging. I've created a subclass of `Process` to add these features.<!--excerpt-->
 
 
-## Subclassing `Process` to return worker results and exceptions
+## Subclassing Process to return worker results and exceptions
 
 Usually, we use `multiprocessing` like this:
 
@@ -24,14 +24,15 @@ def main():
     p.join()
 ```
 
-If the target function (or "worker") had crashed due to an exception, the main process would proceed as if nothing bad had happened. We have to delibrately check `p.exitcode`; even if that tells us something is wrong, we won't get the very useful traceback printout. For the visibility, we need to be sure things get printed out in the target function. That, of couse, still does not stop of the flow of the main process. We still need to check `p.exitcode`.
+If the target function (or "worker") crashes due to an exception, the main process would proceed as if nothing bad has happened. We have to deliberately check `p.exitcode`; even if that tells us something is wrong, we won't get the usual traceback printout. For crashes in the worker to be visible, we need to be sure things get printed out in the target function. That, of course, still does not stop the flow of the main process. We still need to check `p.exitcode`.
 
-In this regard, `concurrent.futures.ProcessPoolExecutor.submit` is clearly more pleasant to use.
-The returned `Future` object will rase the exception that the worker has crashed with, if any, when call `Future.result()` or `Future.exception()`.
+In this regard, `concurrent.futures.ProcessPoolExecutor.submit` is more pleasant to use.
+The returned `Future` object will raise the exception that the worker has crashed with, if any, when we call `Future.result()` or `Future.exception()`.
 
-Another convienence provided by `concurrent.futures` is the method `result()`. The `Process` object does not have this. If the worker wants to return a simple value as the result, we have to pass in a `Queue` or something else to receive it in the worker process and fetch it back to the main process.
+By the way, another convenience provided by `concurrent.futures` is the method `result()`. The `Process` object does not have this. If the worker wants to return a simple value as the result, we have to pass in a `Queue` or something else to receive it in the child process and fetch it back to the main process.
 
-I set out to create a custom subclass of `Process` to add a few bits of enhancements.
+In this article, I'll walk through a custom process class that addresses these inconveniences.
+
 To set the stage, I only care about a "spawned" process, as [that is almost always what we should be using](https://pythonspeed.com/articles/python-multiprocessing/). So I'll create a subclass of `multiprocessing.context.SpawnProcess`, which in turn is a very thin wrapper around `multiprocessing.process.BaseProcess`.
 
 After reading parts of the `multiprocessing` code (especially the "spawn" part, which I did not dive into), I decided it's black magic to me and I should not enhance it by hacking its internals. Instead, I should rely on its public API as far as it can get the enhancements done.
@@ -71,22 +72,25 @@ class BaseProcess(object):
         _children.add(self)
 ```
 
-The basic idea is I should override `run` to capture the result or exception, make them available
+The basic idea is, well, basic: I shall override `run` to capture the result or exception, make them available
 on the `self` object, and access them via a few new methods.
 
-A critical fact note is that the `self` in `run` is NOT the `self` in `__init__`. The code of `run` executes in the child process. If I simply add attributes to `self` in `run`, they won't be reflected on the `self` in the main process. Simply, if I add custom attributes to `self` in `__init__`, they won't be available in `run`.
+A critical fact to realize is that the `self` in `run` is **not** the `self` in `__init__`. The code of `run` executes in the child process. If I simply add attributes to `self` in `run`, they won't be reflected on the `self` in the main process. Similarly, if I add custom attributes to `self` in `__init__`, they won't be available in `run`.
 
-As for `start`, we cannot see how it arranges `run` to be run in the child process. There are quite a few hoops in between.
+As for `start`, it's not obvious at all how it arranges `run` to be run in the child process. There are quite a few hoops in between.
 
-However, we know one connection between the main and child processes, and that is the worker parameters.
-We often use queues as parameters to share things between the processes.
+However, there's at least one connection between the main and the child processes, and that is the worker parameters.
+For example, We often use queues as parameters to share things between the processes.
 
-By now, the strategy is becoming clear and simple. We can use a queue to collect things in the child process and make them available in the main process.
+With this, the strategy is becoming clear. We can use a queue to collect things in the child process and make them available in the main process.
 
-How should we do that? What about adding a parameter to `run`, or something? No, we don't know how `run` is invoked and we certainly don't want to mess with that. Instead, we'll take a ride in `self._kwargs`---we just need to add some elements with unusualy names so that they won't collide with user code, and use them on the back of the user. The code starts like this:
+How should we do that? What about adding a parameter to `run`, or something?
+
+No, we don't know how `run` is invoked and we certainly don't want to mess with that. Instead, we'll take a ride in `self._kwargs`---we just need to add some elements with unusual names so that they won't collide with user code, and use them on the back of the user. The code starts like this:
 
 
 ```python
+import multiprocessing.connection
 import multiprocessing.context
 from concurrent.futures.process import _ExceptionWithTraceback
 
@@ -99,6 +103,7 @@ class SpawnProcess(multiprocessing.context.SpawnProcess):
     def __init__(self, *args, kwargs=None, **moreargs):
         if kwargs is None:
             kwargs = {}
+
         assert '__result_and_error__' not in kwargs
         reader, writer = multiprocessing.connection.Pipe(duplex=False)
         kwargs['__result_and_error__'] = writer
@@ -150,26 +155,65 @@ class SpawnProcess(multiprocessing.context.SpawnProcess):
         return self.__error__
 ```
 
-A few things to note. First, I did not use a queue. I used a `Pipe` for this simple case.
+A few things to note. First, it does not use a queue. Instead, a `Pipe` is used for this simple case.
 It will always contain two values upon completion of `run`, namely the result and the exception.
 
-Second, in `run`, after capturing the exception and put it in the pipe, we still `raise` it to let
+Second, in `run`, after capturing the exception and put it in the pipe, the exception is still `raise`d, to let
 the parent class do whatever it usually does in the case of crashes.
 
-Third, new methods `done`, `result`, and `exception` have been provided to mimic the usage of `concurrent.futures.Future`. Both `result` and `exception` wait for complete with optional timeout, which can be quite handy.
+Third, new methods `done`, `result`, and `exception` have been provided to mimic the usage of `concurrent.futures.Future`. Both `result` and `exception` wait for completion with optional timeout, which can be quite handy.
+
+The use of `_ExceptionWithTraceback` from `concurrent.futures` is also interesting.
+
+We can design some tests for this class.
+
+```python
+def delay_double(x, delay=2):
+    sleep(delay)
+    if x < 10:
+        return x * 2
+    raise ValueError(x)
+
+
+def test_process():
+    t = SpawnProcess(target=delay_double, args=(3,))
+    t.start()
+    sleep(0.1)
+    assert not t.done()
+    assert t.is_alive()
+    with pytest.raises(TimeoutError):
+        y = t.result(0.1)
+    with pytest.raises(TimeoutError):
+        y = t.exception(0.1)
+    assert t.result() == 6
+    assert t.exception() is None
+    t.join()
+
+    t = cls(target=delay_double, args=(12,))
+    t.start()
+    with pytest.raises(TimeoutError):
+        y = t.result(0.2)
+
+    with pytest.raises(ValueError):
+        y = t.result()
+
+    e = t.exception()
+    assert type(e) is ValueError
+
+    t.join()
+```
 
 This does the job decently. Let's move on to another enhancement.
 
 
-## Handling worker process' logs in the main process
+## Handling child process' logging in the main process
 
 As a rule, library code should not configure log handlers regarding formatting, level, destination, etc.
-That is the responsibility of ther user's "entrypoint" script.
+That is the responsibility of the end-user's "entrypoint" script.
 
-Multiprocessing code is often in libraries. When we start a new process, we should not configure logging
-in the process as the settings may very well disagree with what the end-user wants.
-However, if the process is created by the "spawn" method as it shoudl, its logging will have no "handlers" even if user has configured logging in the main process.
-
+Similarly, when we start a new process, we should **not** configure logging
+in the process, as that is the end-user's job and we don't know what exact settings they want.
+However, the user's logging setup in the main process will not carry over to a child process that is created by the "spawn" method.
 We can verify this behavior by a small script:
 
 ```python
@@ -216,32 +260,32 @@ worker warning
 [2022-09-04 21:51:14,664.664; DEBUG; mytest; main, 22] [MainProcess]  main debug
 ```
 
-I don't know what mechanism printed the two messages in the child process. Obviously they abide by the default level of `WARNING`, and the logging config in the main process has no effect in the child process.
+I don't know what mechanism printed the two messages in the child process. Obviously they abide by the default level of `WARNING`, and the logging config in the main process has no effect in the child process. Remember, the worker does not need to be a small and simple function. It may call any amount of other code that produces useful logging. This loss of logging in multiprocessing is definitely **not OK**.
 
-Two solutions appear possible. The first is to send the main-process logging settings into the worker process and enact them there. The second is to sendthe worker-process logs into the main process and handle them there.
+Two solutions appear possible. The first is to send the main-process logging settings into the child process and enact them there. The second is to send the child-process logs back into the main process and handle them here.
 
-For the first option, I didn't research how to send and enact logging settings. But there are other difficulties. For example, if user has configured logs to be written to a file, how do we deal with file states in the worker process? What if there are multiple worker processes? What about the order of log messaged printed by multiple processes? Will the messaged be messed up, hijacked half-sentence as we have seen? Another example, suppose the user has configured logs to be sent to some remote service, and the handler involves credentials ans such, which have all been taken care of in the main process. How can we "send and enact" these settings in a worker process?
+For the first option, I didn't research how to send and enact logging settings. But there are other difficulties. For example, if user has configured logs to be written to a file, how do we deal with file states in the child process? What if there are multiple child processes? What about the order of log messages produced by multiple processes? Will the messages be messed up, hijacked half-sentence as we have fondly seen? Another example, suppose the user has configured logs to be sent to some remote service, and the handler involves credentials ans such, which have all been taken care of in the main process. How can we "send and enact" these settings in a child process?
 
-These make the first option an unlikely solution. So let's go with the second option. I'm going to implement a general solution and then simply use it in the `SpawnProcess` above, while the solution is also usable independent of this `SpawnProcess`.
+These make the first option an unlikely solution. So let's go with the second one. I'm going to implement a general solution and then simply use it in the `SpawnProcess` above, while the solution is also usable independent of this `SpawnProcess`.
 
 The standard module `logging.handlers` has a `QueueHandler`, which places all logging messages in a queue.
-This is exactly what we need in the worker process!
-There's also `logging.handlers.QueueListener`, which appears to be the `QueueHandler` counterpart to be used in the main process. Unfortunately this class does not do all we need. We could customize it or roll out own.
-Since it's simple enough, we decided to roll out own.
+This is precisely what's needed in the child process!
+There's also a `logging.handlers.QueueListener`, which appears to be the counterpart to be used in the main process. Unfortunately, this class does not do all I need. I could customize `QueueListener` or roll my own.
+Since it's simple enough, I decided implement the main-process side from scratch.
 
 There are mainly three aspects to think about:
 
-- How to collect logging messages in the worker process.
+- How to collect logging messages in the child process.
 - How to handle the messages in the main process.
 - How to start/stop and hook things up.
 
 The high-level usage will be like this:
 
 1. In the main process, create an object (which contains a queue) and start it.
-2. Pass this object to the worker process.
-3. In the worker process, start it.
+2. Pass this object to the child process.
+3. In the child process, start it.
 
-That's it. User should not worry about anything else. In order to properly wrap up and clean up, we use the object in a context manager. Depending whether it's in the main process or the worker process, the behaviors differ. In order to tell whether it's in the main process or the worker process, we customize the pickling of the object---if being pickled, it's in the main process; if being un-pickled, it's in the worker process. Here we start:
+That's it. User should not worry about anything else. In order to properly wrap up and clean up, we use the object in a context manager. The behavior of certain methods of the object depends on whether it's in the main process or the child process. In order to tell whether it's in the main or the child process, I customize the pickling of the object---if being pickled, it's in the main process; if being un-pickled, it's in the child process. Here we start:
 
 ```python
 class ProcessLogger:
@@ -250,6 +294,7 @@ class ProcessLogger:
         self._t = None
 
     def __getstate__(self):
+        # In the process that has created `self`.
         assert self._t is not None
         return self._q
 
@@ -271,7 +316,7 @@ class ProcessLogger:
             self._stop_in_other_process()
 ```
 
-The background thread `self._t` will be started in `_start_in_main_process`. The log queue `self._q` will also be created there, before being passed to the child process via pickling. Let's implement the operations in the child process:
+The background thread `self._t` will be started in `_start_in_main_process`. The log queue `self._q` will also be created there, before being passed to the child process via pickling (`__getstate__`) and unpickling (`__setstate__`). Let's implement the operations in the child process:
 
 ```python
     def _start_in_other_process(self):
@@ -281,7 +326,7 @@ The background thread `self._t` will be started in `_start_in_main_process`. The
         root.addHandler(qh)
 ```
 
-For the main process to know the child process has terminated and there will be no more log messages, we place a sentinel in the queue in the worker process. The closing method of the context manager is the perfect place for such concerns.
+For signal that the child process has terminated and there will be no more log messages, the child process places a sentinel in the queue at the end. The closing method of the context manager is the perfect place for such concerns:
 
 ```python
     def _stop_in_other_process(self):
@@ -289,7 +334,7 @@ For the main process to know the child process has terminated and there will be 
         self._q.close()
 ```
 
-Now let's implement the main-process size:
+Now let's implement the main-process:
 
 ```python
     def _start_in_main_process(self):
@@ -313,11 +358,12 @@ Now let's implement the main-process size:
     def _stop_in_main_process(self):
         assert self._t is not None
         self._t.join()
+        self._t = None
 ```
 
-Here we can talk a little bit about the "level" in logging. There are two places to specify "level": on a logger (i.e. what is returned by `logging.getLogger`) or on a handler. If not specified, the default is "WARNING" for a logger, and "DEBUG" (or everything) for a handler. In `_start_in_other_process`, we set `DEBUG` level to the root logger. If no other loggers in the worker process gets its level set, which should be the case, all logging messages on all levels are sent to the queue handler, which accepts everything and puts it in the queue. This is necessary because the worker process has no idea what logging level the end-user (in the main process) decides to impose. On the other hand, in `_logger_thread` in the main process, messages are filtered according to the level of any particular logger. This is as if the messages have been issued in the *main* process by the same logger object, via `logger.warning(...)`, `logger.info(...)`, `logger.debug(...)`, etc. If the call is below the effective level of the logger, the message is not sent to its handlers at all.
+Here it's worthwhile to talk a little bit about the "level" in logging. There are two places to specify "level": on a logger (i.e. what is returned by `logging.getLogger`) and on a handler. If not specified, the default is `WARNING` for a logger, and `DEBUG` (or everything) for a handler. In `_start_in_other_process`, we set `DEBUG` level to the root logger. If no other loggers in the child process gets its level specified, which should be the case, all logging messages on all levels are sent to the queue handler, which accepts everything and puts it in the queue. This is necessary because the child process has no idea what logging level the end-user (in the main process) decides to use. On the other hand, in `_logger_thread` in the main process, a message is filtered according to the level of its logger. This is as if the message has been issued in the *main* process by the same logger object via the same command (`logger.warning(...)`, `logger.info(...)`, `logger.debug(...)`, etc). If the call is below the effective level of the logger, the message is not sent to its handlers at all.
 
-Now let's put it to use. Make some changes to the functions in the script as follows:
+Now let's put this to use. Make some changes to the testing script as follows:
 
 ```python
 def worker(pl):
@@ -354,11 +400,13 @@ Running it, we get
 
 as expected.
 
-How does this implementation differ from `logging.handlers.QueueListener`? There are three differences.First, `QueueListener` requires `handlers` in its `__init__`. Our implementation leaves it open and flexible. For one thing, it could be the case that different loggers have different handlers. The implementation above leaves that to be determined on the fly. Second, `QueueListener` uses a *daemon* thread to process the messages. I'm a little nervous about daemon threads. I think context manager is good. Third, `QueueListener` places a sentinel in the queue in the main process, via `put_nowait`, whereas the solution above does that in the worker process using `put`. This presumably has stronger guarantee that the sentinel won't cut before a valid logging message.
+How does this implementation differ from `logging.handlers.QueueListener`? There are three differences. First, `QueueListener` requires `handlers` in its `__init__`. This implementation leaves it open and flexible. For one thing, it could be the case that different loggers have different handlers. `ProcessLogger` leaves that to be determined on the fly. Second, `QueueListener` uses a *daemon* thread to process the messages. I'm a little nervous about daemon threads. I think context manager is good. Third, `QueueListener` places a sentinel in the queue in the main process, via `put_nowait`, whereas `ProcessLogger` does that in the child process using `put`. This presumably has stronger guarantee that the sentinel won't cut before a valid logging message.
 
 ## Handling logging in the custom `Process` class
 
-The `ProcessLogger` is good and well, but it would be even better if end-user does not need to do it at all. In particular, if we have multiple levels of processes (a process worker creates processes), it can become tedious. Since we have a custom process class, we may as well take this burden off the user if they use that class. This is easy to do. Using the `kwargs` idea again, we just need to pass another thing---this time a `ProcessLogger` object---into the worker process and use it.
+The `ProcessLogger` is well and good, but it would be even better if end-user does not need to use it at all. In particular, if we have multiple levels of processes (where a child process creates its own child processess), it can become tedious. Since we have a custom process class, we may as well take this burden off the user if they use that class.
+
+This is easy. Using the `kwargs` trick again, we just need to pass another thing---this time a `ProcessLogger` object---into the child process and use it.
 
 ```python
 class SpawnProcess(multiprocessing.context.SpawnProcess):
@@ -384,7 +432,7 @@ class SpawnProcess(multiprocessing.context.SpawnProcess):
             ...
 ```
 
-We called `worker_logger.__enter__()` in `__init__` because `SpawnProcess` is not context managed. Where should we call `worker_logger.__exit__()`. The method `__del__` is a natural choice, but it's not totally reliable. We find out the several methods that could terminate the child process, and call `__exit__` in all of them.
+`worker_logger.__enter__()` is called in `__init__` because `SpawnProcess` is not context managed. Then, where should `worker_logger.__exit__()` be called?. The method `__del__` is a natural choice, but it's not totally reliable. I'm going to take a brute-force approach: call it in all the several methods that could terminate the child process or the `SpawnProcess` object:
 
 ```python
     def _stop_logger(self):
@@ -410,5 +458,6 @@ We called `worker_logger.__enter__()` in `__init__` because `SpawnProcess` is no
 ```
 
 This is not exactly elegant, but it seems to get the job done.
+Now `SpawnProcess` can be used in a pattern similar to `concurrent.futures.Future`. It's less likely to overlook crashes of the child process, and logging in the child process is handled properly.
 
 The code presented in this articular is available in the package [mpservice](https://pypi.org/project/mpservice/).
