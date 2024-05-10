@@ -1,12 +1,103 @@
 ---
 layout: post
-title: How Python's multiprocessing.Manager works---First Dig
+title: "Python's multiprocessing.Manager: a Code Reader"
 excerpt_separator: <!--excerpt-->
 tags: [Python]
 ---
 
+There are several ways to communicate between Python processes (as created by the standard package `multiprocessing`).
+One common and hugely useful way is by queues. This is an async, passive mechanism, in the sense that a process (the "receiver") waits on a queue and gets whatever a "sender" (in another process) has placed in the queue. The receiver has no control over what to get and when to get---it gets whatever arrives when it arrives.
 
-## helpers
+Async communication is like mails, whereas sync communication is like phonecalls. `multiprocessing.managers` provides ways to make phone calls between processes.<!--excerpt--> By this mechanism, one process would make a specific request to another process and wait for reply on the spot.
+
+I once had a need to enhance or customize or hack `multiprocessing.managers`. For that purpose, I read, and re-read, and re-read, its implementation, trying to understand how it works. It is not the easiest code to follow! This post attemps to explain what I have understood. It can be treated as an annotated version of the [CPython 3.10 module multiprocessing.managers](https://github.com/python/cpython/blob/3.10/Lib/multiprocessing/managers.py). The code listings below ommit segments that are not necessary to understanding. (Some omissions are indicated by `...`.) Also, I only cover parts of the code that "I" needed to understand, but I believe those are the most important parts for a basic understanding.
+
+Let's start with an example. 
+
+
+## Magnifier
+
+I define a class, run its functionalities in one process, and request the results from another process.
+
+```python
+# mag.py
+
+import multiprocessing
+from multiprocessing.managers import BaseManager
+
+
+class Magnifier:
+    def __init__(self, coefficient=2):
+        self._coef = coefficient
+
+    def scale(self, x):
+        return x * self._coef
+
+
+
+BaseManager.register('Magnifier', Magnifier)
+
+
+def main():
+    with BaseManager(ctx=multiprocessing.get_context('spawn')) as manager:
+        mag2 = manager.Magnifier()
+        x = 3
+        y = mag2.scale(x)
+        print(f"x: {x}, y: {y}")
+        assert y == x * 2
+
+        mag3 = manager.Magnifier(3)
+        x = 3
+        y = mag3.scale(x)
+        print(f"x: {x}, y: {y}")
+        assert y == x * 3
+
+
+if __name__ == '__main__':
+    main()
+```
+
+Executing this script gets this:
+
+```shell
+$ python3 mag.py 
+x: 3, y: 6
+x: 3, y: 9
+```
+
+Here is what's happening:
+
+We define a class `Magnifier` and *register* it with the `BaseManager` class (line 16).
+
+With a `BaseManger` object running (line 20), it "manages" a background *server process*, which knows how to use the classes that have been registered.
+
+We call `manager.Magnifier()` (line 21). This method is dynamically defined on the `BaseManager` class when we did the registration. This call tells the server process to create an instance of `Magnifier` and holds on to it for later use. In detail, the server process calls the second parameter given to `register` (line 16), which is the `Magnifier` class, that is, it calls `Magnifier.__init__`, taking parameters as usual. On line 21, it uses the default parameter value(s); one line 27, we pass in an argument. The call to `manager.Magnifier` returns a *proxy* to the `Magnifier` instance that has been created in the server process. `mag2` and `mag3` are proxies to two unrelated objects in the server process.
+
+We call the method `scale` on the proxy object (line 23, 29). This asks the server process to call the `scale` method on the real `Magnifier` object corresponding to the proxy, and return the result. In the main process (the "client" or "user" process), we get this result from the call. The proxy object (`mag2` and `mag3`) is an instance of a proxy class that is dynamically defined during registration.
+The proxy class defines the method `scale`, by default, because it is a "public" method of the class that is being registered.
+
+That's it.
+
+If this is new to you, think about it. This opens the door to many, many possibilities.
+
+
+## Big picture
+
+The manager facility has three players: 
+
+- the manager: it takes class registrations, manages a server process, creates proxy objects for registered classes;
+- the server: it is started by the manager in a server process;
+- proxies: these are "references" to objects created in the server process; they are used in client processes to communicate with their corresponding "real" objects that live in the server process.
+
+[diagram]
+
+`multiprocessing.managers` defines classes `BaseManager`, `Server`, and `BaseProxy` for these concepts. We'll dig into each of them very soon.
+
+
+
+## Helpers
+
+This is a listing of some helper code that will be referenced as needed.
 
 ```python
 
@@ -48,6 +139,30 @@ def dispatch(c, id, methodname, args=(), kwds={}):
         return result
     raise convert_to_error(kind, result)
 
+
+#
+# Functions for finding the method names of an object
+#
+
+def all_methods(obj):
+    '''
+    Return a list of names of methods of `obj`
+    '''
+    temp = []
+    for name in dir(obj):
+        func = getattr(obj, name)
+        if callable(func):
+            temp.append(name)
+    return temp
+
+
+def public_methods(obj):
+    '''
+    Return a list of names of methods of `obj` which do not start with '_'
+    '''
+    return [name for name in all_methods(obj) if name[0] != '_']
+
+
 #
 # Mapping from serializer name to Listener and Client types
 #
@@ -59,6 +174,8 @@ listener_client = {
 ```
 
 ## BaseManager
+
+The `BaseManager` class is responsible for two things, namely starting a server process and taking registrations.
 
 ### BaseManager.start
 
@@ -243,8 +360,32 @@ We register something, whose type is labeled by `typeid`, to be created in the s
 The particular callable that will be used to create this proxy object is given by the parameter `proxytype`, which may be a class object or a function.
 If not provided, a generic `AutoProxy` will be used (lines 24-25). This parameter is used in lines 45--48.
 
+`exposed` is a list (or tuple) of method names of the registered class that should be made callable via its proxy. This info is saved in the registry (line 37) and passed to the server process. If `exposed` is `None` and `proxytype` is `None` (hence `proxytype` will assume `AutoProxy`, per lines 24-25), then a `None` is saved in the registry (line 27, 37). Well, this does not mean no method will be exposed on the proxy! When a proxy object is created, it receives an argument `exposed`, which is *not* this `None`, but rather is a value returned from the server process (lines 44-48). That value turns out to be all the "public" methods of our class as determined by the function `public_methods` ([Helpers], lines 57).
+
+In our example program, we have seen the public method `scale` is automatically provided by the proxy.
+
+The parameter `method_to_typeid` supports yet another special need. Usually, when we call an "exposed" method on the proxy, the corresponding method on the real object in the server process is called; a value (or "object", as is everything in Python) is created, pickled up, and sent back to us; we get it, unpickle it, and go ahead use it; the original value in the server process is garbage collected, since it is mission completed. However, if an exposed method intends to create some object in the server process, let it stay there, and return a proxy to us, we need `method_to_typeid` to describe this. Specifically, `method_to_typeid` is a dict with method names as keys and registered `typeid`s as values.
+For example, suppose our example class `Magnifier` has a method called `spawn` that returns another `Magnifier` instance, and we want this spawned object to stay in the server process and be used through a proxy of itself, we will use `method_to_typeid={'spawn': 'Magnifier'}`.
+
+Finally, the parameter `create_method` determines whether to create a method on `BaseManager` for creating an instance of the registered class in the server process, and giving us a proxy for it (lines 41-53). This method is named after `typeid` (lines 52-53). In our example program, we used `manager.Magnifier(...)` ([Magnifier] lines 21, 27); that is the created method at work.
+
+Let's take a look at how this method is defined (lines 42-51). First, it calls `BaseManager._create` (lines 3-13), which talks to the server process to create an object according to `typeid`,
+and returns a `Token`---containing address, ID, that sort of info useful for finding the object in the server process, as well as `exposed`---a tuple of method names to be made available on the proxy.
+Second, a proxy object is created (lines 45-48). For now, it suffices to note that the proxy gets the token, the list of exposed methods, and a reference to the `BaseManager` object itself (`manager=self`). Third, a request is sent to the server process to decrement the object's reference count by 1 (lines 49-50). (The maintenance of ref count is a trick subject that we have to defer to a later section.) Finally, the method returns the proxy object.
+
+Whew! Nice and easy!
+
+Did you notice that `create_method` is `True` by default? That means, it can be `False`. You may wonder, when do we ever not want this method? Well, there are situations where this method is not meaningful. We may see examples in the next blog post.
+
 
 ## Server
+
+We have seen one case of communication with the server process, which happens in `BaseManager._create`.
+Much more communication will take place between a *proxy* and the server process, but the mechanism is similar. We'll examine proxy classes in a later section.
+
+`BaseManager.start` starts a server process, in which a `Server` object is created and placed in an infinite service loop. This `Server` object is all about inter-process communication.
+
+
 
 ```python
 
@@ -260,10 +401,8 @@ class Server(object):
               'debug_info', 'number_of_objects', 'dummy', 'incref', 'decref']
 
     def __init__(self, registry, address, authkey, serializer):
-        if not isinstance(authkey, bytes):
-            raise TypeError(
-                "Authkey {0!r} is type {1!s}, not bytes".format(
-                    authkey, type(authkey)))
+        ...
+
         self.registry = registry
         self.authkey = process.AuthenticationString(authkey)
         Listener, Client = listener_client[serializer]
@@ -293,10 +432,7 @@ class Server(object):
             except (KeyboardInterrupt, SystemExit):
                 pass
         finally:
-            if sys.stdout != sys.__stdout__: # what about stderr?
-                util.debug('resetting stdout, stderr')
-                sys.stdout = sys.__stdout__
-                sys.stderr = sys.__stderr__
+            ...
             sys.exit(0)
 
     def accepter(self):
@@ -335,9 +471,6 @@ class Server(object):
                 c.send(('#TRACEBACK', format_exc()))
             except Exception:
                 pass
-            util.info('Failure to send message: %r', msg)
-            util.info(' ... request was %r', request)
-            util.info(' ... exception was %r', e)
 
     def handle_request(self, conn):
         '''
@@ -427,13 +560,32 @@ class Server(object):
             except Exception as e:
                 util.info('exception in thread serving %r',
                         threading.current_thread().name)
-                util.info(' ... message was %r', msg)
-                util.info(' ... exception was %r', e)
                 conn.close()
                 sys.exit(1)
 
+    def fallback_getvalue(self, conn, ident, obj):
+        return obj
+
+    def fallback_str(self, conn, ident, obj):
+        return str(obj)
+
+    def fallback_repr(self, conn, ident, obj):
+        return repr(obj)
+
+    fallback_mapping = {
+        '__str__':fallback_str,
+        '__repr__':fallback_repr,
+        '#GETVALUE':fallback_getvalue
+        }
+
     def dummy(self, c):
         pass
+
+    def debug_info(self, c):
+        '''
+        Return some info --- useful to spot problems with refcounting
+        '''
+        ...
 
     def number_of_objects(self, c):
         '''
@@ -445,7 +597,14 @@ class Server(object):
         '''
         Shutdown this process
         '''
-        ...
+        try:
+            util.debug('manager received shutdown message')
+            c.send(('#RETURN', None))
+        except:
+            import traceback
+            traceback.print_exc()
+        finally:
+            self.stop_event.set()
 
     def create(self, c, typeid, /, *args, **kwds):
         '''
@@ -474,7 +633,6 @@ class Server(object):
 
             ident = '%x' % id(obj)  # convert to string because xmlrpclib
                                     # only has 32 bit signed integers
-            util.debug('%r callable returned object with id %r', typeid, ident)
 
             self.id_to_obj[ident] = (obj, set(exposed), method_to_typeid)
             if ident not in self.id_to_refcount:
@@ -487,7 +645,7 @@ class Server(object):
         '''
         Return the methods of the shared object indicated by token
         '''
-        ...
+        return tuple(self.id_to_obj[token.id][1])
 
     def accept_connection(self, c, name):
         '''
@@ -542,6 +700,22 @@ class Server(object):
             with self.mutex:
                 del self.id_to_obj[ident]
 ```
+
+### serve_forever
+
+Once the object is initialized, `serve_forever` is called to put it in an infinite loop (lines 39-40). The loop is halted once the `threading.Event` object `self.stop_event` is set, which happens in the method `shutdown` (line 216).
+Note that the method `shutdown` is listed in `Server.public`. All the methods in this list are invoked by a request from other processes. In the case of `shutdown`, it is requested in `BaseManager._finalize_manager` ([BaseManager.start], line 91), which is executed when the `BaseManager` object exits its context manager.
+
+While the server is waiting for a "shutdown" signal, it has a background thread in its own infinite loop (lines 35-37, 48-55.) This thread's job is to accept incoming connection requests. Upon accepting a new connection request, a new thread is started (lines 53-55). The new thread takes over the handling of the new connection (receiving messages, sending responses). The "old" thread continues to wait for new connections.
+This is a standard pattern in such server code.
+
+For ease of writing, we'll call the two threads the "connection-accepting" thread and "connection-handling" thread, respectively.
+
+Connection requests come from the `BaseManager` object, which has created this server process, or from proxy objects, which "reference" objects in this server process.
+
+## handle_request
+
+The connection-handling thread calls `handle_request` (lines 84-94), and in turn `_hanle_request` (lines 57-82).
 
 
 ## Proxy
@@ -855,3 +1029,5 @@ SyncManager.register('list', list, ListProxy)
 SyncManager.register('dict', dict, DictProxy)
 SyncManager.register('Value', Value, ValueProxy)
 ```
+
+## Keeping Ref Counts Correct (aka Memory Management)
