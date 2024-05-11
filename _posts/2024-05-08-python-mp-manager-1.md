@@ -378,6 +378,47 @@ Whew! Nice and easy!
 Did you notice that `create_method` is `True` by default? That means, it can be `False`. You may wonder, when do we ever not want this method? Well, there are situations where this method is not meaningful. We may see examples in the next blog post.
 
 
+### BaseManager.connect
+
+Besides `_create`, several other methods, including `connect`, `_debug_info`, and `_number_of_objects` also communicate with the server process.
+We'll refer back to the following code listing when we go over the server code in the next sections.
+
+
+```python
+
+class BaseManager(object):
+
+    def connect(self):
+        '''
+        Connect manager object to the server process
+        '''
+        Listener, Client = listener_client[self._serializer]
+        conn = Client(self._address, authkey=self._authkey)
+        dispatch(conn, None, 'dummy')
+        self._state.value = State.STARTED
+
+    def _debug_info(self):
+        '''
+        Return some info about the servers shared objects and connections
+        '''
+        conn = self._Client(self._address, authkey=self._authkey)
+        try:
+            return dispatch(conn, None, 'debug_info')
+        finally:
+            conn.close()
+
+    def _number_of_objects(self):
+        '''
+        Return the number of shared objects
+        '''
+        conn = self._Client(self._address, authkey=self._authkey)
+        try:
+            return dispatch(conn, None, 'number_of_objects')
+        finally:
+            conn.close()
+```
+
+
 ## Server
 
 We have seen one case of communication with the server process, which happens in `BaseManager._create`.
@@ -715,10 +756,100 @@ Connection requests come from the `BaseManager` object, which has created this s
 
 ## handle_request
 
-The connection-handling thread calls `handle_request` (lines 84-94), and in turn `_hanle_request` (lines 57-82).
+The connection-handling thread calls `handle_request` (lines 84-94), and in turn `_handle_request` (lines 57-82).
+
+The parameter `c` to `_handle_request` is an instance of `multiprocessing.connection.Connection`. We grab the message from this connection and unpack it to four things (lines 62-63). Ignoring the first, the second is a function name, and the remaining two are positional and keyword args to the function.
+
+The function must be one of those listed in `Server.public` (line 64), namely,
+
+```python
+ ['shutdown', 'create', 'accept_connection', 'get_methods',
+              'debug_info', 'number_of_objects', 'dummy', 'incref', 'decref']
+```
+
+Each of these is a method of `Server`. This method is then called, with the positional and keyward args just obtained (lines 65, 70).
+The result is sent back over the connection (line 77). Then the connection is closed (line 94) and the connection-handling thread exits.
+
+Let's look at a few concrete examples.
+
+We have encountered a call to `create`. In the "creator method" for the registered class in `BaseManager` ([BaseManager.register], lines 42-51), we call `BaseManager._create` (line 44), which connects with the server and sends a message with this content ([BaseManager.register], line 10; [Helpers], line 33):
+
+```python
+(None, 'create', (typeid,) + args, kwds)
+```
+
+These happen to be the four things unpacked out of the message received on the server side.
+Apparently, the first thing does not apply to this call. (In fact, the first thing has to do with some ID or address of a proxied object. The `create` method will create a new object, hence the first thing does not apply.)
+
+Now proceed to the actual method `Server.create` (line 218).
+In `create`, we first grab the registered info for the `typeid` (line 223-224), which has been passed in from the `BaseManager` ([BaseManager.start], lines 34-38, 70).
+We create an object following instructions of the registration, tend to some book keeping (lines 246-250), and return two pieces of info concerning the ID of the object and a list of its methods that should be exposed on its proxy.
+
+Take another example, the method `number_of_objects` (line 199). This method is requested to be invoked by `BaseManager._number_of_objects` ([BaseManager.connect], lines 22-30). This method does not take arguments, hence the manager only needs to send in the function name ([BaseManager.connect], line 28), whereas the positional and keyward args assume their default, empty values ([Helpers], line 29).
+
+The methods `shutdown`, `debug_info`, `dummy` are also requested by the `BaseManager` object. In contrast, the method `get_methods` is requested by a proxy object for the list of exposed methods of its corresponding object in the server process (line 257). This info has been saved when the object is created (line 246).
+
+There are three more methods to go through: `accept_connection`, `incref`, and `decref`. The latter two methods help maintain correct ref counts for objects created in the server process upon requests from other processes. Calls to these two methods originate both in the server process, and in other processes (from the manager or proxy objects) relayed into the server process via messages in connections. We will revisit these methods in a later section that is dedicated to memory management.
+
+`accept_connection` is called by a proxy object ([BaseProxy._callmethod], lines 56, 68) in prep for calling a method of the referenced object ([BaseProxy._callmethod], line 71).
+
+`accept_connection` calls `serve_client` after sending an acknowledgement to the requester (lines 259-266).
+
+In `serve_client` (starting at line 96), we first retrieve the next message in the connection (line 111),
+which the requesting proxy object sends after it receives the connection acknowledgement from the server process,
+and unpack four things out of the message (line 112), namely `ident`, `methodname`, `args`, and `kwds`. The first contains info for identifying/locating the object; the rest are the name of the method to be called on the object, along with arguments. Subsequently, we get hold of the object (lines 113-120), the target method of it (lines 122-128), and call it (line 131).
+
+There's a twist about the result of the function call, `res`. It could be something we will send straight back to the requester (a proxy object in another process), or it could be something we will keep in the server process and send back a proxy for it, as is dictated by the parameter `method_to_typeid` when the class is registered ([BaseManager.register], lines 15-39).
+In the second case, we call `create` (lines 135-141) to save `res` in the server process (by putting it in some dict) and obtain info for its proxy.
+The call gets three positional arguments (line 137):
+
+```python
+rident, rexposed = self.create(conn, typeid, res)
+```
+
+where `typeid` is obtained from `gettypeid` (line 135), which is exactly `method_to_typeid`.
+
+There's another twist in the call to `create` related to `typeid` and its registration info (lines 223-224).
+If `callable` is `None`, then `res` is directly the object to be saved in the server process, and a proxy for it is returned. On the other hand, if `callable` is not `None`, it will be called with `res` as the sole argument, and the result of that call is to be saved and proxyed.
+
+An example can make this more clear. To continue with the earlier thought of adding a method `spawn` to `Magnifier`, it will go like this:
+
+```python
+class Magnifier:
+    def __init__(self, coefficient=2):
+        ...
+
+    ...
+
+    def spawn(self, coef):
+        return coef
+```
+
+The registration will go like this
+
+```python
+BaseManager.register('Magnifier', Magnifier, method_to_typeid={'spawn': 'Magnifier'})
+```
+
+Note that `spawn` does not return a `Magnifier` object. Rather, it returns a value that will be passed to `callable` as the sole positional argument (lines 137, 232). In this example, `callable` is `Magnifier`, hence the value passed to it is the parameter `coefficient`. This appears somewhat restrictive, and requires careful coordination in the designs of the `spawn` and the callable, which does not have to be `Magnifier`---it all depends on that `typeid` is specified in `method_to_typeid`.
+
+Now back to `serve_client`. By the time we are ready to send back a response to the request (line 166), the response message has been prepared as a length-two tuple. The first element is a flag indicating the nature of the value; the second element is the value. 
+If the value is a "regular" object, the flag is `"#RETURN"`.
+If the value is info for a proxy, the flag is `"#PROXY"`.
+Otherwise, some situation has happened and the flag is `"#ERROR` or `"#TRACEBACK"`.
+
+After sending result to the requestor, we are finally... not done. We loop back to wait for the next message coming in the same connection (line 107-112). Once a proxy object has opened a connection to the server process, the connection stays open ([BaseProxy._callmethod], lines 50-57, 63-69). If we make multiple method calls on the proxy object, this connection is reused.
+
+The code suggests that thread in which `accept_connection` and `serve_client` run stays live until the server dies or the proxy object dies.
+When the server dies, `stop_event` is set (line 107).
+When the proxy dies, the connection is closed on its end, leading to an `EOFError` on line 111, which exits the thread (lines 156-159).
+Bear this in mind if your application has a large number of proxy objects.
 
 
 ## Proxy
+
+### BaseProxy._callmethod
+
 
 ```python
 
@@ -853,6 +984,13 @@ class BaseProxy(object):
                        threading.current_thread().name)
             tls.connection.close()
             del tls.connection
+```
+
+### Pickling
+
+```python
+
+class BaseProxy(object):
 
     def __reduce__(self):
         kwds = {}
@@ -866,7 +1004,6 @@ class BaseProxy(object):
         else:
             return (RebuildProxy,
                     (type(self), self._token, self._serializer, kwds))
-
 
 #
 # Function used for unpickling
