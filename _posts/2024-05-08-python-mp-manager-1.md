@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Python's multiprocessing.Manager: a Code Reader"
+title: "Code-reading Python's multiprocessing.managers: Part 1"
 excerpt_separator: <!--excerpt-->
 tags: [Python]
 ---
@@ -8,16 +8,16 @@ tags: [Python]
 There are several ways to communicate between Python processes (as created by the standard package `multiprocessing`).
 One common and hugely useful way is by queues. This is an async, passive mechanism, in the sense that a process (the "receiver") waits on a queue and gets whatever a "sender" (in another process) has placed in the queue. The receiver has no control over what to get and when to get---it gets whatever arrives when it arrives.
 
-Async communication is like mails, whereas sync communication is like phonecalls. `multiprocessing.managers` provides ways to make phone calls between processes.<!--excerpt--> By this mechanism, one process would make a specific request to another process and wait for reply on the spot.
+Async communication is like mails, whereas sync communication is like phone calls. `multiprocessing.managers` provides ways to make phone calls between processes.<!--excerpt--> By this mechanism, one process would make a specific request to another process and wait for reply on the spot.
 
-I once had a need to enhance or customize or hack `multiprocessing.managers`. For that purpose, I read, and re-read, and re-read, its implementation, trying to understand how it works. It is not the easiest code to follow! This post attemps to explain what I have understood. It can be treated as an annotated version of the [CPython 3.10 module multiprocessing.managers](https://github.com/python/cpython/blob/3.10/Lib/multiprocessing/managers.py). The code listings below ommit segments that are not necessary to understanding. (Some omissions are indicated by `...`.) Also, I only cover parts of the code that "I" needed to understand, but I believe those are the most important parts for a basic understanding.
+I once had some need to enhance or customize or hack `multiprocessing.managers`. For that purpose, I read, re-read, and re-read its source code, trying to understand how it works. This article attemps to explain what I have understood. It can be treated as an annotated version of the [CPython 3.10 module multiprocessing.managers](https://github.com/python/cpython/blob/3.10/Lib/multiprocessing/managers.py). The code listings below ommit segments that are not necessary to a basic understanding; some omissions are indicated by `...`.
 
 Let's start with an example. 
 
 
 ## Magnifier
 
-I define a class, run its functionalities in one process, and request the results from another process.
+We define a class, run its functionalities in one process, and request the results from another process.
 
 ```python
 # magnifier.py
@@ -69,14 +69,14 @@ Here is what's happening:
 
 We define a class `Magnifier` and *register* it with the `BaseManager` class (line 16).
 
-With a `BaseManger` object running (line 20), it "manages" a background *server process*, which knows how to use the classes that have been registered.
+With a `BaseManger` object running (line 20), it "manages" a background *server process* (or *server* for short), which knows how to use the classes that have been registered.
 
-We call `manager.Magnifier()` (line 21). This method is dynamically defined on the `BaseManager` class when we did the registration. This call tells the server process to create an instance of `Magnifier` and holds on to it for later use. In detail, the server process calls the second parameter given to `register` (line 16), which is the `Magnifier` class, that is, it calls `Magnifier.__init__`, taking parameters as usual. On line 21, it uses the default parameter value(s); one line 27, we pass in an argument. The call to `manager.Magnifier` returns a *proxy* to the `Magnifier` instance that has been created in the server process. `mag2` and `mag3` are proxies to two unrelated objects in the server process.
+When we call `manager.Magnifier()` (line 21), notice that the Python standard library certainly has no idea that one particular user will use it for something called "Magnifier". This method is dynamically defined on the `BaseManager` class when we made the registration. This call tells the *server* to create an instance of `Magnifier` and holds on to it for later use. In detail, the server calls the second parameter given to `register` (line 16), which is the `Magnifier` class, that is, it calls `Magnifier.__init__`, taking arguments as usual if any is provided in the call `manager.Magnifier(...)`. On line 21, it uses the default parameter value(s); one line 27, we pass in an argument. The call to `manager.Magnifier` returns a *proxy* to the `Magnifier` instance that has been created in the server process. `mag2` and `mag3` are proxies to two unrelated objects in the server process.
 
-We call the method `scale` on the proxy object (line 23, 29). This asks the server process to call the `scale` method on the real `Magnifier` object corresponding to the proxy, and return the result. In the main process (the "client" or "user" process), we get this result from the call. The proxy object (`mag2` and `mag3`) is an instance of a proxy class that is dynamically defined during registration.
+We call the method `scale` on the proxy objects (line 23, 29). This asks the server to call the `scale` method on the real `Magnifier` objects corresponding to the proxies, and return the results to the user in the "main" (or "client") process. The proxy object (`mag2` and `mag3`) is an instance of a proxy class that is dynamically defined according to registration info.
 The proxy class defines the method `scale`, by default, because it is a "public" method of the class that is being registered.
 
-That's it.
+That finishes the phone call.
 
 If this is new to you, think about it. This opens the door to many, many possibilities.
 
@@ -85,13 +85,11 @@ If this is new to you, think about it. This opens the door to many, many possibi
 
 The manager facility has three players: 
 
-- the manager: it takes class registrations, manages a server process, creates proxy objects for registered classes;
-- the server: it is started by the manager in a server process;
-- proxies: these are "references" to objects created in the server process; they are used in client processes to communicate with their corresponding "real" objects that live in the server process.
+- the manager: it takes class registrations, manages a server process, requests the server to create instances of registered classes, and hands corresponding proxies to the user;
+- the server: it is started by the manager in a server process, and continues to take and respond to requests from the manager and proxies;
+- proxies: these are "references" to objects in the server process; they are used in client processes to communicate with their target objects.
 
-[diagram]
-
-`multiprocessing.managers` defines classes `BaseManager`, `Server`, and `BaseProxy` for these concepts. We'll dig into each of them very soon.
+`multiprocessing.managers` defines classes `BaseManager`, `Server`, and `BaseProxy` for these concepts. We'll dig into each of them.
 
 
 
@@ -171,31 +169,11 @@ listener_client = {
     'pickle' : (connection.Listener, connection.Client),
     'xmlrpclib' : (connection.XmlListener, connection.XmlClient)
     }
-
-
-def convert_to_error(kind, result):
-    if kind == '#ERROR':
-        return result
-    elif kind in ('#TRACEBACK', '#UNSERIALIZABLE'):
-        if not isinstance(result, str):
-            raise TypeError(
-                "Result {0!r} (kind '{1}') type is {2}, not str".format(
-                    result, kind, type(result)))
-        if kind == '#UNSERIALIZABLE':
-            return RemoteError('Unserializable message: %s\n' % result)
-        else:
-            return RemoteError(result)
-    else:
-        return ValueError('Unrecognized message type {!r}'.format(kind))
-
-class RemoteError(Exception):
-    def __str__(self):
-        return ('\n' + '-'*75 + '\n' + str(self.args[0]) + '-'*75)
 ```
 
 ## BaseManager
 
-The `BaseManager` class is responsible for three things, namely taking (class) registrations, starting a server process,  and creating (registered class) objects in the server process.
+The `BaseManager` class is responsible for three things, namely taking (class) registrations, starting a server process,  and asking the server to create objects (of registered classes) per user request.
 
 ```python
 #
@@ -378,51 +356,56 @@ class BaseManager(object):
 ### start
 
 When we call `BaseManager.start` or enter its context manager, it starts a "server" process
-(lines 34--42), in which `BaseManager._run_server` is executed.
-The function `_run_server` creates an instance of the class `BaseManager._Server` (line 70) and eventually starts its infinite service loop (line 79).
+(lines 34--42), in which `_run_server` is executed.
+The method `_run_server` (lines 57-79) creates a server object---an instance of the class `BaseManager._Server`---and starts its infinite service loop.
 
-Importantly, the class attribute (not instance attribute) `BaseManager._registry` is passed into the `_Server` object in the server process (line 36, 70). This dict contains info about classes that have been registered with the class `BaseManager`; this is central info telling the `_Server` object what to do with various requests.
+Importantly, the class attribute (not instance attribute!) `BaseManager._registry` is passed to the server object (line 36, 70). This dict contains info that has been gathered by calls to the method `register`; this is central info telling the server what to do with various requests.
 
-How will the `_Server` object in the server process communicate with the `BaseManager` object or other things in the "main" process? That will use some inter-process communication mechanisms provided by `multiprocessing.connection` (`BaseManager._Listener` and `BaseManager._Client` on line 21). Upon start of the server process, the `BaseManager` object receives the address of the `_Server` object, to be used for future communications.
-(Line 73: the server process sends the address; line 45: the `BaseManager` object receives the address.)
+How will the server communicate with the manager or other things in the client process? That will use some inter-process communication mechanisms provided by `multiprocessing.connection` (`BaseManager._Listener` and `BaseManager._Client` on line 21). Upon start of the server process, the manager receives the address of the server, to be used for future communications.
+(Line 73: the server process sends the address; line 45: the manager receives it.) In future communicates, the server often includes its address in the response.
+
 
 ### register
 
 `BaseManager.register` (line 110) is used to register a class that we intend to use in the server process
-and talk to from other processes. This method accepts several (optional) parameters, each representing a whole lot of info that we are not able to clearly explain before seeing concrete applications.
+and talk to from other processes. This method accepts several optional parameters including `callable`, `proxytype`, `exposed`, `method_to_typeid`, and `create_method`, each representing a whole lot of info that we are not able to clearly explain before seeing concrete applications.
 
-`typeid` is a unique name of the class. Usually this is the name of the class. For example, to register the class `Doubler`,
-we can use `typeid="Doubler"`.
+`typeid` is a unique identifier for the class. Usually this is the name of the class. For example, to register the class `Magnifier`, we can use `typeid="Magnifier"`.
 
-`callable` is to be used to create an object of the said class (which is represented by `typeid`), given other parameters as appropriate. For example,
-`callable=Doubler` (the class object) is a natural choice. If `callable` is `None`, an object will be created in some way without a final call to a "definitive" function (such as a class object). See `Server.create` ([Server], lines 226--232).
+`callable` is to be used to create an object of the said class, given other parameters as appropriate. For example,
+`callable=Magnifier` (the class object) is a natural choice. If `callable` is `None`, an object will be created in some way without a final call to a "definitive" function. (See `Server.create` in section [Server], lines 226--232).
 
-Why is that? Well, although we say "register a class", named by `typeid`, it does not have to be only one type. `typeid` is just a name; it could represent different things in different situations, and the right "thing" could be created by code in flexible ways.
+Why is that? 
+Well, we talk about "class" mainly for ease of explanation. The subject of registration does not have to be a class.
+In any case, the server uses this `typeid` to loate the registration info and decide how to proceed.
 
-We register something, whose type is labeled by `typeid`, to be created in the server process. In other processes, this thing will be represented by a "proxy".
-The particular callable that will be used to create this proxy object is given by the parameter `proxytype`, which may be a class object or a function.
-If not provided, a generic `AutoProxy` will be used (lines 118-119). This parameter is used in lines 139-142.
+Once we create something in ther server according to the registred `typeid` and represent the thing in other processes by a "proxy",
+the particular callable that will be used to create this proxy object is given by the parameter `proxytype`, which may be a class or a function.
+If not provided, a generic `AutoProxy` will be used (lines 118-119).
 
-`exposed` is a list (or tuple) of method names of the registered class that should be made callable via its proxy. This info is saved in the registry (line 131) and passed to the server process. If `exposed` is `None` and `proxytype` is `None` (hence `proxytype` will assume `AutoProxy`, per lines 118-119), then a `None` is saved in the registry (line 121, 131). Well, this does not mean no method will be exposed on the proxy! When a proxy object is created, it receives an argument `exposed`, which is *not* this `None`, but rather is a value returned from the server process (lines 138-142). That value turns out to be all the "public" methods of our class as determined by the function `public_methods` ([Helpers], lines 57).
+`exposed` is a tuple of method names of the registered class that should be made callable via its proxy. This info is saved in the registry and passed to the server process. If `exposed` is `None` and is not available from `proxytype`, then a `None` is saved in the registry (line 121, 131). For sure, this does not mean no method will be exposed on the proxy! When a proxy object is created, it receives an argument `exposed`, which is *not* this `None`, but rather is a value returned from the server (lines 138-142). That value turns out to be all the "public" methods of the target object as determined by the function `public_methods` ([Helpers], lines 57).
 
 In our example program, we have seen the public method `scale` is automatically provided by the proxy.
 
-The parameter `method_to_typeid` supports yet another special need. Usually, when we call an "exposed" method on the proxy, the corresponding method on the real object in the server process is called; a value (or "object", as is everything in Python) is created, pickled up, and sent back to us; we get it, unpickle it, and go ahead use it; the original value in the server process is garbage collected, since it is mission completed. However, if an exposed method intends to create some object in the server process, let it stay there, and return a proxy to us, we need `method_to_typeid` to describe this. Specifically, `method_to_typeid` is a dict with method names as keys and registered `typeid`s as values.
-For example, suppose our example class `Magnifier` has a method called `spawn` that returns another `Magnifier` instance, and we want this spawned object to stay in the server process and be used through a proxy of itself, we will use `method_to_typeid={'spawn': 'Magnifier'}`.
+Usually, when we call an "exposed" method on the proxy, the corresponding method on the real object in the server process is called; a value (or "object", as is everything in Python) is created, pickled up, and sent back to us; we get it, unpickle it, and go ahead use it; the original value in the server process is garbage collected, since it is mission completed. However, if an exposed method intends to create some object in the server process, let it stay there, and return a proxy to us, we need `method_to_typeid` to describe this. Specifically, `method_to_typeid` is a dict with method names as keys and registered `typeid`s as values.
+For example, suppose our example class `Magnifier` has a method called `spawn` that returns another `Magnifier` instance, and we want this spawned object to stay in the server and be used through a proxy of itself, we will use `method_to_typeid={'spawn': 'Magnifier'}`.
 
-Finally, the parameter `create_method` determines whether to create a method on `BaseManager` for creating an instance of the registered class in the server process, and giving us a proxy for it (lines 135-147). This method is named after `typeid` (lines 146-147). In our example program, we used `manager.Magnifier(...)` ([Magnifier] lines 21, 27); that is the created method at work.
+### object creation
 
-Let's take a look at how this method is defined (lines 136-145). First, it calls `BaseManager._create` (lines 97-107), which talks to the server process to create an object according to `typeid`,
-and returns a `Token`---containing address, ID, that sort of info useful for finding the object in the server process, as well as `exposed`---a tuple of method names to be made available on the proxy.
-Second, a proxy object is created (lines 139-142). For now, it suffices to note that the proxy gets the token, the list of exposed methods, and a reference to the `BaseManager` object itself (`manager=self`). Third, a request is sent to the server process to decrement the object's reference count by 1 (lines 143-144). (The maintenance of ref count is a trick subject that we have to defer to a later section.) Finally, the method returns the proxy object.
+Finally, the parameter `create_method` dictates whether to add a method to `BaseManager` for creating an instance of the registered class in the server process, and giving us a proxy for it (lines 135-147). This method is named after `typeid` (lines 146-147). In our example program, we used `manager.Magnifier(...)` ([Magnifier] lines 21, 27); that is the created method at work.
 
-Whew! Nice and easy!
+Let's take a look at how this method is defined (lines 136-145).
 
-Did you notice that `create_method` is `True` by default? That means, it can be `False`. You may wonder, when do we ever not want this method? Well, there are situations where this method is not meaningful. We may see examples in the next blog post.
+First, it calls `_create` (lines 97-107), which talks to the server to create an object according to `typeid`,
+and returns a `Token`---containing address, ID, that sort of info needed for finding the object in the server, as well as `exposed`---a tuple of method names to be made available on the proxy.
 
-Besides `_create`, several other methods, including `connect`, `_debug_info`, and `_number_of_objects` also communicate with the server process.
-We'll refer back to the following code listing when we go over the server code in the next sections.
+Second, a proxy object is created (lines 139-142). For now, it suffices to note that the proxy gets the token, the names of exposed methods, and a reference to the manager itself. 
 
+Third, a request is sent to the server to decrement the target object's reference count by 1 (lines 143-144). (The maintenance of ref count is a subject for the next article.)
+
+Finally, the method returns the proxy object.
+
+Did you notice that `create_method` is `True` by default? That is, it could be `False`. You may wonder, when do we ever not want this method? Yes, there are situations where this method is not meaningful. Consider this: a method of a registered class may return a proxy-ed object, and another registration specifies how this return value should be handled.
 
 ## Server
 
@@ -702,49 +685,12 @@ class Server(object):
         self.serve_client(c)
 
     def incref(self, c, ident):
-        with self.mutex:
-            try:
-                self.id_to_refcount[ident] += 1
-            except KeyError as ke:
-                # If no external references exist but an internal (to the
-                # manager) still does and a new external reference is created
-                # from it, restore the manager's tracking of it from the
-                # previously stashed internal ref.
-                if ident in self.id_to_local_proxy_obj:
-                    self.id_to_refcount[ident] = 1
-                    self.id_to_obj[ident] = \
-                        self.id_to_local_proxy_obj[ident]
-                    obj, exposed, gettypeid = self.id_to_obj[ident]
-                    util.debug('Server re-enabled tracking & INCREF %r', ident)
-                else:
-                    raise ke
+        # Inc the ref count by 1
+        ...
 
     def decref(self, c, ident):
-        if ident not in self.id_to_refcount and \
-            ident in self.id_to_local_proxy_obj:
-            util.debug('Server DECREF skipping %r', ident)
-            return
-
-        with self.mutex:
-            if self.id_to_refcount[ident] <= 0:
-                raise AssertionError(
-                    "Id {0!s} ({1!r}) has refcount {2:n}, not 1+".format(
-                        ident, self.id_to_obj[ident],
-                        self.id_to_refcount[ident]))
-            self.id_to_refcount[ident] -= 1
-            if self.id_to_refcount[ident] == 0:
-                del self.id_to_refcount[ident]
-
-        if ident not in self.id_to_refcount:
-            # Two-step process in case the object turns out to contain other
-            # proxy objects (e.g. a managed list of managed lists).
-            # Otherwise, deleting self.id_to_obj[ident] would trigger the
-            # deleting of the stored value (another managed object) which would
-            # in turn attempt to acquire the mutex that is already held here.
-            self.id_to_obj[ident] = (None, (), None)  # thread-safe
-            util.debug('disposing of obj with id %r', ident)
-            with self.mutex:
-                del self.id_to_obj[ident]
+        # Dec the ref count by 1
+        ...
 ```
 
 ### serve_forever
@@ -1025,49 +971,13 @@ class BaseProxy(object):
         raise convert_to_error(kind, result)
 
     def _incref(self):
-        if self._owned_by_manager:
-            util.debug('owned_by_manager skipped INCREF of %r', self._token.id)
-            return
-
-        conn = self._Client(self._token.address, authkey=self._authkey)
-        dispatch(conn, None, 'incref', (self._id,))
-        util.debug('INCREF %r', self._token.id)
-
-        self._idset.add(self._id)
-
-        state = self._manager and self._manager._state
-
-        self._close = util.Finalize(
-            self, BaseProxy._decref,
-            args=(self._token, self._authkey, state,
-                  self._tls, self._idset, self._Client),
-            exitpriority=10
-            )
+        # Request server to inc ref count; set up finalizer to call `_decref`
+        ...
 
     @staticmethod
     def _decref(token, authkey, state, tls, idset, _Client):
-        idset.discard(token.id)
-
-        # check whether manager is still alive
-        if state is None or state.value == State.STARTED:
-            # tell manager this process no longer cares about referent
-            try:
-                util.debug('DECREF %r', token.id)
-                conn = _Client(token.address, authkey=authkey)
-                dispatch(conn, None, 'decref', (token.id,))
-            except Exception as e:
-                util.debug('... decref failed %s', e)
-
-        else:
-            util.debug('DECREF %r -- manager already shutdown', token.id)
-
-        # check whether we can close this thread's connection because
-        # the process owns no more references to objects for this manager
-        if not idset and hasattr(tls, 'connection'):
-            util.debug('thread %r has no more proxies so closing conn',
-                       threading.current_thread().name)
-            tls.connection.close()
-            del tls.connection
+        # Request server to dec ref count
+        ...
 ```
 
 The method `_callmethod` (lines 59-87) is the workhorse of `BaseProxy`.
@@ -1323,365 +1233,3 @@ Note that the proxy class does not expose the method `__iter__`. It is not neces
 9
 >>>
 ```
-
-
-## Keeping Ref Counts Correct (aka Memory Management)
-
-We've seen a large portion of the functionalities that `multiprocessing.managers` has to offer.
-We're inching close to the "crown jewel" of Python code---memory management! Yeah!! Exciting time...
-
-`Server` has methods `incref` and `decref`. They are called in `Server` code both for its own need and as requested by a proxy or manager from other processes.
-`BaseProxy` has methods `_incref` and `_decref`. They are called in `BaseProxy` to request `Server.incref` and `Server.decref` to be called on the object that the proxy "references".
-We will go over all these calls to confirm that they keep the ref count of an object in the server, which is represented by a proxy or proxies outside of the server (in other processes), correct as all times.
-In this context, the correct behavior of a ref count is:
-
-- the ref count of an object in server is positive as long as there is at least one proxy "out there" for it, and in this situation the object remains alive
-- the ref count drops to 0 once the number of proxies for the object drops to 0, and at that point the object is garbage collected
-
-The following is not necessary but is likely the actual behavior (for most of the time):
-
-- the ref count is equal to the number of proxies "out there" for the object in question
-
-There are two cases where an object is created in the server and a proxy is created for it in other processes.
-The first case is by calling a method that is defined on `BaseManager` in `BaseManager.register` thanks to the parameter `create_method=True`.
-The second case is by calling a method on a proxy, and as a result the eventual method that is called on the server object (in the server process) is in the `method_to_typeid` record of the class registration.
-Let's call the two cases "create a proxy" and "return a proxy", respectively.
-
-### Creating a proxy
-
-When creating a proxy, the "creation method" that is dynamically defined in `BaseManager.reigister` ([BaseManager], lines 136-145) is called.
-
-1. `BaseManager._create` ([BaseManager], lines 97-107) is called, which in turn calls `Server.create` ([Server], lines 218-252).
-2. The proxy object is crated ([BaseManager], lines 139-142).
-3. `Server.decref` is called ([BaseManager], lines 143-144; [Server], lines 286-311).
-
-In `Server.create`, the object gets cached in `id_to_obj` of the server object; its ref count is tracked in `id_to_refcount` of the server object and is initialized to 0. Then, `Server.incref` is called to inc the ref count by 1.
-Hence, the ref count is normally 1 before the server responds to the manager.
-This remains the status at the end of step 1.
-
-When the proxy object is created, `BaseProxy.__init__` calls `BaseProxy._incref` to inc the ref count by 1 ([BaseProxy], lines 45-46). Hence, upon creation of the proxy object, the ref count is 2. This is the status at the end of step 2.
-
-In step 3, the manager calls the server to dec the ref count by 1, reducing the ref count from 2 to 1.
-
-At the time when the user receives the proxy object, the server tracks its ref count to be 1. All is good.
-
-But the journey is bumpy. Why inc, inc, dec? Can't we just set it to 1 and be done with it?
-
-There's one caveat in `Server.create` during book keeping ([Server], lines 248-249):
-
-```python
-            if ident not in self.id_to_refcount:
-                self.id_to_refcount[ident] = 0
-```
-
-Why the check here? The object is just creatd, how can its ref count already be tracked?
-There's at least one scenario I can think of: the object does not have to be brand new.
-It can be an existing object retrieved from some cache. This is completely possible because, for one thing,
-the thing registered with `BaseManager` does not have to be a *class*; it can very well be a function.
-We can show this scenario with an example:
-
-```python
-# mag.py
-
-import multiprocessing
-from multiprocessing.managers import BaseManager
-
-
-class Magnifier:
-    def __init__(self, coef=2):
-        self._coef = coef
-
-    def scale(self, x):
-        return x * self._coef
-
-
-
-BaseManager.register('Magnifier', Magnifier)
-
-
-mags = {}
-
-
-def Mag(coef):
-    try:
-        return mags[coef]
-    except KeyError:
-        v = Magnifier(coef)
-        mags[coef] = v
-        return v
-
-
-BaseManager.register('Mag', Mag)
-
-    
-def main():
-    with BaseManager(ctx=multiprocessing.get_context('spawn')) as manager:
-        mag2 = manager.Mag(2)
-        x = 3
-        y = mag2.scale(x)
-        assert y == x * 2
-
-        print('mag2._id:', mag2._id)
-        print('number_objects:', manager._number_of_objects())
-        print('debug_info:', manager._debug_info())
-        print()
-
-        mag2_another = manager.Mag(2)
-        assert mag2_another.scale(10) == 20
-        print('mag2_another._id:', mag2_another._id)
-        print('number_objects:', manager._number_of_objects())
-        print('debug_info:', manager._debug_info())
-
-if __name__ == '__main__':
-    main()
-```
-
-Running this script got:
-
-```shell
-$ python3 mag.py 
-mag2._id: 7f3702d168f0
-number_objects: 1
-debug_info:   7f3702d168f0:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f3702d168f0>
-
-mag2_another._id: 7f3702d168f0
-number_objects: 1
-debug_info:   7f3702d168f0:       refcount=2
-    <__mp_main__.Magnifier object at 0x7f3702d168f0>
-```
-
-`Server.create` sets the ref count to 0 only if the entry does not exist;
-otherwise it's left untouched ([Server], lines 248-249). The rational is simple: if the object is already being targeted (by one or more proxies), it already has a positive ref count. Now another proxy is going to target the same object, we must not reset the existing ref count, and should just increment it by 1 for the new proxy.
-
-Do we have to increment the ref count in the server? Can we leave this task to the user (the requester in other processes)?
-
-No. Consider this scenario in the example above:
-
-Suppose in thread A we call `manager.Mag(2)` to get a proxy to use.
-Then in thread B we call `manager.Mag(2)` to get another proxy for unrelated use.
-The server gets a `Magnifier` object but it's the same one that thread A is using, with a ref count 1,
-Imagine, just as the server is sending back message to B's call without touching the ref count,
-the proxy in thread A is deleted, which requests server to dec the ref count, which drops to 0, and the `Magnifier` object in the server is deleted.
-When thread B receives server response, it will create a proxy pointing to a remote object that has just disappeared.
-
-In conclusion, the call to `incref` in the server ([Server], line 250) is necessary. The server must hold a spot for the proxy before the proxy object comes into being.
-
-Now that the server has got the ref count right, why do we inc, and then dec, on the user side?
-
-For one thing, a new proxy may be created for an existing remote object without the server's knowledge. This happens when a proxy is passed to another process, increasing the remote object's usership by 1. In concept, it feels right that whenever a proxy object is created, the target remote object gets one more ref count, hence the `incref` call in `BaseProxy.__init__` ([BaseProxy], lines 45-46). This explains the countering `decref` after the proxy's creation ([BaseManager], lines 143-144).
-
-The need of locking during object creation and ref count modification in the server ([Server], lines 222-249, 268-284, 292-300) may be explained in smilar scenarios, where multiple threads in the server are trying to work on the same object.
-
-`BaseProxy._incref` is called only once in the lifetime of a proxy object. At the end of this method, a finalizer is created for this object ([BaseProxy], lines 102-107). The finalizer is invoked when the object is garbage collected.
-(For a reference on such finalizers, see [this blog post](https://zpz.github.io/blog/guaranteed-finalization-without-context-manager/).)
-The finalizer calls `BaseProxy._decref`, which requests the server to dec the ref count of its target object. In `Server.decref`, is the ref count of an object drops to 0, it makes sure the object is garbage collected ([Server], lines 302-311).
-
-
-### Returning a proxy
-
-Calling a proxy method to return another proxy primarily entails a call to `BaseProxy._callmethod`. The following happens in order:
-
-1. The proxy connects to the server and sends its request ([BaseProxy], lines 63-72), which is handled by `Server.serve_client` ([Server], lines 111-142).
-2. A new proxy object is created based on the response from the server ([BaseProxy], lines 77-83).
-3. Make a request to the server to call its `decref` on the target object of the proxy.
-
-Steps 2 and 3 are very similar to the steps 2 and 3 in the "creating a proxy" case. The only difference is that, when creating a proxy, the steps 2 and 3 happen in the manager, whereas when returning a proxy, the steps 2 and 3 happen in a proxy object.
-
-The difference in step 1 of the two cases is on the server side.
-In `Server.serve_client`, after we have called the requested method on the target object
-([Server], lines 110-131), we check whether this method should return a proxy
-([Server], lines 135). Note that `gettypeid` is the by-now-familiar `method_to_typeid`, and `typeid` is a registered `typeid` as indicated in `method_to_typeid`. If `typeid` is not `None`, we call `Server.create` ([Server], lines 136-139). Note that in this call, the result, `res`, of the request function is passed to `create` as the sole parameter after the connection object and `typeid`. The makes for some different situations compared to when `Server.create` is called by the manager.
-
-Specifically ([Server], lines 226-232), if the `callable` for the registered class represented by `typeid` is `None`, then `res` becomes the remote object.
-On the other hand, if `callable` is not `None`, it is called with `res` as the sole, positional argument. Let's drive this home with an example.
-
-```python
-# clone.py
-
-import multiprocessing
-from multiprocessing.managers import BaseManager
-
-
-class Magnifier:
-    def __init__(self, coef=2):
-        self._coef = coef
-
-    def scale(self, x):
-        return x * self._coef
-
-    def clone(self):
-        return self.__class__(self._coef)
-    
-    def spawn(self, coef):
-        return coef
-
-
-
-BaseManager.register('Magnifier', callable=Magnifier, 
-                     method_to_typeid={'spawn': 'Magnifier', 'clone': 'ClonedMagnifier'},
-                     )
-BaseManager.register('ClonedMagnifier', callable=None, 
-                     exposed=('scale', 'clone', 'spawn'), 
-                     method_to_typeid={'spawn': 'Magnifier', 'clone': 'ClonedMagnifier'}, 
-                     create_method=False,
-                     )
-
-    
-def main():
-    with BaseManager(ctx=multiprocessing.get_context('spawn')) as manager:
-        mag = manager.Magnifier(2)
-        print(type(mag))
-        assert mag.scale(3) == 6
-        print(manager._debug_info())
-        print()
-
-        clone = mag.clone()
-        print(type(clone))
-        assert clone.scale(9) == 18
-        print(manager._debug_info())
-        print()
-
-        spawn = mag.spawn(3)
-        print(type(spawn))
-        assert spawn.scale(5) == 15
-        print(manager._debug_info())
-        print()
-
-        clone_spawn = clone.spawn(10)
-        print(type(clone_spawn))
-        assert clone_spawn.scale(9) == 90
-        print(manager._debug_info())
-        print()
-
-        spawn_clone = spawn.clone()
-        print(type(spawn_clone))
-        assert spawn_clone.scale(5) == 15
-        print(manager._debug_info())
-
-if __name__ == '__main__':
-    main()
-```
-
-Running this script got this:
-
-```shell
-$ python3 clone.py
-<class 'multiprocessing.managers.AutoProxy[Magnifier]'>
-  7f4f7018e8f0:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018e8f0>
-
-<class 'multiprocessing.managers.AutoProxy[ClonedMagnifier]'>
-  7f4f7018e8f0:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018e8f0>
-  7f4f7018ebc0:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018ebc0>
-
-<class 'multiprocessing.managers.AutoProxy[Magnifier]'>
-  7f4f7018e8f0:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018e8f0>
-  7f4f7018ebc0:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018ebc0>
-  7f4f7018ec50:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018ec50>
-
-<class 'multiprocessing.managers.AutoProxy[Magnifier]'>
-  7f4f7018e740:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018e740>
-  7f4f7018e8f0:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018e8f0>
-  7f4f7018ebc0:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018ebc0>
-  7f4f7018ec50:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018ec50>
-
-<class 'multiprocessing.managers.AutoProxy[ClonedMagnifier]'>
-  7f4f7018e740:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018e740>
-  7f4f7018e8f0:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018e8f0>
-  7f4f7018eb00:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018eb00>
-  7f4f7018ebc0:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018ebc0>
-  7f4f7018ec50:       refcount=1
-    <__mp_main__.Magnifier object at 0x7f4f7018ec50>
-```
-
-We want `clone` and `spawn` to return proxies for `Magnifier` objects.
-Because `clone` returns a `Magnifier` object, we don't want any further changes to it, hence we need to link it, in `method_to_typeid`, to a registered "typeid" that has no callable.
-In addition, the "typeid" should have a proxy class that works for `Magnifier`. We choose to let `AutoProxy` create a proxy class for us, and all we need to do is to tell it what methods should be exposed. This is necessary because, given `callable=None`, the code has no way to infer "public methods" by itself (from nothing!). We also take care to use `create_method=False`. After all, there is no class for function called `"ClonedMagnifier"`. The registration is purely "free" instructions about how to handle the result of `Magnifier.clone`.
-
-For `spawn`, we choose to link it, in `method_to_typeid`, to the registered `"Magnifier"`. However, since the registered `"Magnifier"` has a callable, `Magnifier.spawn` can not return the final thing. Instead, it must return a single value that is going to be passed to the callable, which will return a `Magnifier`.
-
-Now, a natural question is: what are the needs for these two different paths? (To be answered ...)
-
-
-## Pickling
-
-A proxy object can be passed to another process.
-Upon unpickling, a new, independent proxy object is created as a new client to the remote object in the server.
-A proxy object can not be naively pickled, because several things needs special attention, one of them being ref count management.
-
-Pickling is controlled by the method `BaseProxy.__reduce__` (listed below). `__reduce__` returns a tuple of two elements; the first is a function that is going to be called during unpicking to create the new object; the second is a tuple of parameters for the first element. This tuple pickled and then used during unpickling.
-
-Depending on whether the proxy object has been created by `AutoProxy` or is an instance of a hand-rolled class, 
-`__reduce__` instructs unpickling to call `RebuildProxy` (listed below) with `AutoProxy` or the hand-rolled class along with a few minimal and original parameters. It leaves out most of the attributes the proxy object has accumulated. (Naive, default pickling would just pickle every attribute of the object.)
-
-
-```python
-
-class BaseProxy(object):
-
-    def __reduce__(self):
-        kwds = {}
-        if get_spawning_popen() is not None:
-            kwds['authkey'] = self._authkey
-
-        if getattr(self, '_isauto', False):
-            kwds['exposed'] = self._exposed_
-            return (RebuildProxy,
-                    (AutoProxy, self._token, self._serializer, kwds))
-        else:
-            return (RebuildProxy,
-                    (type(self), self._token, self._serializer, kwds))
-
-
-#
-# Function used for unpickling
-#
-
-def RebuildProxy(func, token, serializer, kwds):
-    '''
-    Function used for unpickling proxy objects.
-    '''
-    server = getattr(process.current_process(), '_manager_server', None)
-    if server and server.address == token.address:
-        util.debug('Rebuild a proxy owned by manager, token=%r', token)
-        kwds['manager_owned'] = True
-        if token.id not in server.id_to_local_proxy_obj:
-            server.id_to_local_proxy_obj[token.id] = \
-                server.id_to_obj[token.id]
-    incref = (
-        kwds.pop('incref', True) and
-        not getattr(process.current_process(), '_inheriting', False)
-        )
-    return func(token, serializer, incref=incref, **kwds)
-```
-
-The first two lines test whether this function is being run in the server process that manages this proxy's target object. This is facilitated by one line in `Server.serve_forever` ([Server], line 33), which assigns the server object to the process as an attribute named "_manager_server".
-
-```python
-class Server(object):
-    ...
-
-    def serve_forever(self):
-        ...
-        process.current_process()._manager_server = self
-        ...
-```
-
-If the test turns out positive, then the target object is cached in `server.id_to_local_proxy_obj` in addition to `server.id_to_obj`. (TODO: how is this useful?) In addition, `manager_owned=True` is passed to the proxy creation function; this info is useful for nested proxy objects. (TODO: how?)
-
-The determination of `incref` (lines 32-35) involves the attribute `_inheriting` of the process. I tried to understand it. It seems to be relevant on Windows only and is set only during the creation of a process. In regular situations, it seems, `incref` will be `False` only if the input `kwds` contains a `False` value for `"incref"`. This does not occur in the module `multiprocessing.managers` but can be useful in the method `__reduce__` of a custom subclass of `BaseProxy`.
-
