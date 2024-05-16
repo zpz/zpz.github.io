@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Code-reading Python's multiprocessing.managers: Part 1"
+title: "Reading and Hacking Python's multiprocessing.managers: Part 1"
 excerpt_separator: <!--excerpt-->
 tags: [Python]
 ---
