@@ -648,14 +648,13 @@ Now, a natural question is: what are the needs for these two different paths? (T
 
 
 
-A proxy object can be passed to another process.
-Upon unpickling, a new, independent proxy object is created as a new client to the remote object in the server.
-A proxy object can not be naively pickled, because several things needs special attention, one of them being ref count management.
+A proxy object can be passed to another process, in there to act as another independent communicator to the remote object in the server.
+To be passed across processes, a proxy needs to be pickled and unpickled. However, this can not rely on the default behavior of `pickle`, because for one thing, it would not work! (A proxy object may have some attributes that are not pickleable.)
+Moreover, a proxy object has some special considerations to take care of. Therefore, `BaseProxy` implements the special method `__reduce__` to control pickling.
 
-Pickling is controlled by the method `BaseProxy.__reduce__` (listed below). `__reduce__` returns a tuple of two elements; the first is a function that is going to be called during unpicking to create the new object; the second is a tuple of parameters for the first element. This tuple pickled and then used during unpickling.
-
+`__reduce__` (listed below) returns a tuple of two elements; the first is a function that is going to be called during unpickling to create the new object; the second is a tuple of parameters for the first element. This tuple is pickled and then used during unpickling.
 Depending on whether the proxy object has been created by `AutoProxy` or is an instance of a hand-rolled class, 
-`__reduce__` instructs unpickling to call `RebuildProxy` (listed below) with `AutoProxy` or the hand-rolled class along with a few minimal and original parameters. It leaves out most of the attributes the proxy object has accumulated. (Naive, default pickling would just pickle every attribute of the object.)
+`__reduce__` instructs unpickling to call `RebuildProxy` (listed below) with `AutoProxy` or the hand-rolled class along with a few other parameters. The other parameters are a few very basic and indispensible attributes of the proxy. Many other attributes of the proxy are left out.
 
 
 ```python
@@ -698,9 +697,9 @@ def RebuildProxy(func, token, serializer, kwds):
     return func(token, serializer, incref=incref, **kwds)
 ```
 
-The first two lines test whether this function is being run in the server process that manages this proxy's target object. This is facilitated by one line in `Server.serve_forever`, which assigns the server object to the process as an attribute named "_manager_server".
+In `RebuildProxy`, the first two lines test whether this function is being run in the server process that manages this proxy's target object. This is facilitated by one line in `Server.serve_forever`, which assigns the server object to the process as an attribute named "_manager_server".
 
-```python
+{% highlight python %}
 class Server(object):
     ...
 
@@ -708,11 +707,128 @@ class Server(object):
         ...
         process.current_process()._manager_server = self
         ...
+{% endhighlight %}
+
+If the test turns out positive, then the target object is cached in `server.id_to_local_proxy_obj` in addition to `server.id_to_obj`. In addition, `manager_owned=True` is passed to the proxy creation function. (We will come back to this detail later.)
+
+The determination of `incref` (lines 32-35) involves the attribute `_inheriting` of the process. I do not understand this attribute, but experiments showed its value varies and is important.
+
+If `manager_owned` is `True`, then `BaseProxy.__init__` does not call `BaseProxy._incref` ([BaseProxy], lines 12-13), i.e, it does not increment the ref count of the remote object.
+Importantly, `_incref` assigns a finalizer ([BaseProxy], lines 68-73), which decrement the ref count when the proxy object is garbage collected.
+Now that `_incref` is not called during initialization, `_decref` is not called either during garbage collection, which makes sense. (But, we'll come back to this.)
+
+One likely use case of pickling is to pass a proxy to another process via a queue.
+There is a delay between a proxy is put in a queue (in one process) and it is taken out of the queue (in another process).
+During the delay, if the proxy in the first process is garbage collected, triggering the target object in the server to be garbage colleted (because at that moment there is not other proxy for the object), then when the second process gets the proxy from the queue, the proxy references a remote object that no long exists!
+This is not really a corner case; it happens easily if the proxy in the first process is created in a loop.
+Let's make up an example to show this issue.
+
+
+```python
+from multiprocessing.managers import SyncManager
+from multiprocessing.queues import Queue
+from multiprocessing import get_context, Process
+from time import sleep
+
+
+class Magnifier:
+    def __init__(self, coef=2):
+        self._coef = coef
+
+    def scale(self, x):
+        return x * self._coef
+    
+
+SyncManager.register('Magnifier', Magnifier)
+
+
+def worker(q):
+    coef = 0
+    while True:
+        proxy = q.get()
+        if proxy is None:
+            return
+        coef += 1
+        y = proxy.scale(8)
+        print('coef:', coef, 'scale(8):', y)
+        assert y == coef * 8
+        sleep(0.01)
+
+
+def main():
+    ctx = get_context('spawn')
+    q = Queue(ctx=ctx)
+    worker_process = ctx.Process(target=worker, args=(q,))
+    worker_process.start()
+
+    with SyncManager(ctx=ctx) as manager:
+        for i in range(1, 10):
+            scaler = manager.Magnifier(i)
+            q.put(scaler)
+            sleep(0.1)
+        q.put(None)
+
+
+if __name__ == '__main__':
+    main()
 ```
 
-If the test turns out positive, then the target object is cached in `server.id_to_local_proxy_obj` in addition to `server.id_to_obj`. (TODO: how is this useful?) In addition, `manager_owned=True` is passed to the proxy creation function; this info is useful for nested proxy objects. (TODO: how?)
+Running this script got
 
-The determination of `incref` (lines 32-35) involves the attribute `_inheriting` of the process. I tried to understand it. It seems to be relevant on Windows only and is set only during the creation of a process. In regular situations, it seems, `incref` will be `False` only if the input `kwds` contains a `False` value for `"incref"`. This does not occur in the module `multiprocessing.managers` but can be useful in the method `__reduce__` of a custom subclass of `BaseProxy`.
+```shell
+$ python3 test_pickle.py 
+coef: 1 scale(8): 8
+coef: 2 scale(8): 16
+coef: 3 scale(8): 24
+coef: 4 scale(8): 32
+coef: 5 scale(8): 40
+coef: 6 scale(8): 48
+coef: 7 scale(8): 56
+coef: 8 scale(8): 64
+coef: 9 scale(8): 72
+
+```
+
+However, after we swapped the sleep times in the two processes, we got this:
+
+
+```shell
+$ python test_pickle.py 
+coef: 1 scale(8): 8
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/docker-user/mpservice/tests/experiments/test_pickle.py", line 21, in worker
+    proxy = q.get()
+  File "/usr/lib/python3.10/multiprocessing/queues.py", line 122, in get
+    return _ForkingPickler.loads(res)
+  File "/usr/lib/python3.10/multiprocessing/managers.py", line 942, in RebuildProxy
+    return func(token, serializer, incref=incref, **kwds)
+  File "/usr/lib/python3.10/multiprocessing/managers.py", line 990, in AutoProxy
+    proxy = ProxyType(token, serializer, manager=manager, authkey=authkey,
+  File "/usr/lib/python3.10/multiprocessing/managers.py", line 792, in __init__
+    self._incref()
+  File "/usr/lib/python3.10/multiprocessing/managers.py", line 847, in _incref
+    dispatch(conn, None, 'incref', (self._id,))
+  File "/usr/lib/python3.10/multiprocessing/managers.py", line 93, in dispatch
+    raise convert_to_error(kind, result)
+multiprocessing.managers.RemoteError: 
+---------------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/multiprocessing/managers.py", line 209, in _handle_request
+    result = func(c, *args, **kwds)
+  File "/usr/lib/python3.10/multiprocessing/managers.py", line 439, in incref
+    raise ke
+  File "/usr/lib/python3.10/multiprocessing/managers.py", line 426, in incref
+    self.id_to_refcount[ident] += 1
+KeyError: '7fc53f42feb0'
+---------------------------------------------------------------------------
+```
+
+In this case, the main process sleeps 0.01 seconds before going to the next loop and re-assigning `scaler` to another proxy object, thereby garbage collect the previous proxy object. In the other process, it sleeps 0.1 seconds between loops. As a result, by the time the next element is taken out of the queue, the remote object has already been garbage collected.
 
 ## Nested proxies
 
