@@ -11,6 +11,25 @@ This article goes deeper than Part 1, most around the subject of memory manageme
 Memory management is a critical concern we keep some things in the server process and use them via "proxies" that reside in other processes (yes there can be more than one client processes). There is no object references across process boundaries. The server does not have an existing way to know how many users exist for one specific server-side object, how they are changing, and when there is no more user and the object should be garbage collected. We need to go out of our usual way to track the ref count of each object created in the server and pointed to by proxies. The goal of this explicit book keeping is to make sure that an object is not garbage collected when it should not be, and is garbage collected when it should be.
 
 
+Sections:
+
+  1. [Server](#server)
+
+  2. [BaseManager](#basemanager)
+
+  3. [BaseProxy](#baseproxy)
+
+  4. [Pickling](#pickling)
+
+  5. [Bug in pickling](#bug-in-pickling)
+
+  6. [Bug related to pickling](#bug-related-to-pickling)
+
+  7. [Nested proxies](#nested-proxies)
+
+  8. [Bug in nested proxies](#bug-in-nested-proxies)
+
+
 ### Server
 
 ```python
@@ -717,6 +736,10 @@ If `manager_owned` is `True`, then `BaseProxy.__init__` does not call `BaseProxy
 Importantly, `_incref` assigns a finalizer ([BaseProxy], lines 68-73), which decrement the ref count when the proxy object is garbage collected.
 Now that `_incref` is not called during initialization, `_decref` is not called either during garbage collection, which makes sense. (But, we'll come back to this.)
 
+
+## Bug in pickling
+
+
 One likely use case of pickling is to pass a proxy to another process via a queue.
 There is a delay between a proxy is put in a queue (in one process) and it is taken out of the queue (in another process).
 During the delay, if the proxy in the first process is garbage collected, triggering the target object in the server to be garbage colleted (because at that moment there is not other proxy for the object), then when the second process gets the proxy from the queue, the proxy references a remote object that no long exists!
@@ -793,7 +816,7 @@ However, after we swapped the sleep times in the two processes, we got this:
 
 
 ```shell
-$ python test_pickle.py 
+$ python3 test_pickle.py 
 coef: 1 scale(8): 8
 Process SpawnProcess-1:
 Traceback (most recent call last):
@@ -830,11 +853,257 @@ KeyError: '7fc53f42feb0'
 
 In this case, the main process sleeps 0.01 seconds before going to the next loop and re-assigning `scaler` to another proxy object, thereby garbage collect the previous proxy object. In the other process, it sleeps 0.1 seconds between loops. As a result, by the time the next element is taken out of the queue, the remote object has already been garbage collected.
 
+On the client side (in the worker process), the error happens in `BaseProxy.__init__` when it tries to increment the ref count of the remote object ([BaseProxy], lines 13, 61). In the server, the error happens in the method `Server.incref` ([Server], line 126), where the object with the requested identifier does not exist.
+
+Because this scenario is not a *rare*, *special* one, I consider this a bug in the standard library. We realize that the purpose of pickling a proxy in this context is to use it (probably always) in another process; the purpose is never persistence. The problem is that during the time between pickling and unpickling, the ref count that the future new object (out of unpickling) is to claim may lose the basis---the object for the ref count may be garbage collected. A fix is, simply, claim the spot preemptively. In other words, we do `incref` during pickling instead of unpickling. The fix is listed below.
+
+
+```python
+
+class BaseProxy(object):
+
+    def __reduce__(self):
+        conn = self._Client(self._token.address, authkey=self._authkey)
+        dispatch(conn, None, 'incref', (self._id, ))
+        # Above is fix: pre-emptive `incref`.
+
+        # Begin original code of `__reduce__`---
+        kwds = {}
+        ...
+
+
+def RebuildProxy(func, token, serializer, kwds):
+    ...
+
+    obj = func(token, serializer, incref=incref, **kwds)
+    # Above is original code of `RebuildProxy`, just don't return yet.
+
+    # Fix: counter the extra `incref` that's done in the line above---
+    conn = self._Client(obj._token.address, authkey=obj._authkey)
+    dispatch(conn, None, 'decref', (obj._id, ))
+
+    return obj
+```
+
+In the revised `RebuildProxy`, we do not change the original logic of `incref` that is passed to `func`;
+usually this value is `True`. Why don't we just use `incref=False` to skip the `incref`, since we have already done it in `__reduce__`? The reason is that `incref=True` let's `BaseProxy.__init__` call `BaseProxy._incref`, which in addition to calling `incref` on the server, setting up a finalizer to be called during garbage collection of the proxy object, and the finalizer calls `decref` on the server. We need this finalizer, hence we let the extra `incref` to happen in the call to `func`, and counter the effect with a `decref` right after the proxy's creation.
+
+
+## Bug related to pickling
+
+about `proxytype` in `BaseProxy._callmethod` when receiving a "PROXY" return...
+
+
 ## Nested proxies
 
-## Server-side proxies
+Proxies can be "nested" in the sense that a remote object, which is represented by a proxy, can contain proxy objects.
+Let's make up a simple example to show this idea.
 
-## Shared memory
+```python
+from multiprocessing import get_context
+from multiprocessing.managers import SyncManager
 
-## Providing useful info for exceptions
 
+def main():
+    with SyncManager(ctx=get_context('spawn')) as manager:
+        mydict = manager.dict(a=3, b=4)
+        mylist = manager.list(['first', 'second'])
+        print('mylist', type(mylist), 'at', id(mylist))
+
+        mydict['seq'] = mylist
+        yourlist = mydict['seq']
+        print('yourlist', type(yourlist), 'at', id(yourlist))
+        print('len(mylist):', len(mylist))
+        print('len(yourlist):', len(yourlist))
+
+        yourlist.append('third')
+        print('len(yourlist):', len(yourlist))
+        print('len(mylist):', len(mylist))
+        print(mylist[2])
+              
+
+if __name__ == '__main__':
+    main()
+```
+
+Running this script got:
+
+```shell
+$ python3 test_proxy_nest.py 
+mylist <class 'multiprocessing.managers.ListProxy'> at 139749626606352
+yourlist <class 'multiprocessing.managers.ListProxy'> at 139749625658768
+len(mylist): 2
+len(yourlist): 2
+len(yourlist): 3
+len(mylist): 3
+third
+```
+
+The statement `mydict['seq'] = mylist` assigns the *proxy* `mylist` to the key `'seq'` on the dict **inside the server** (i.e. the dict that the proxy `mydict` represents, but the `mydict` itself).
+The statement `yourlist = mydict['seq']` gets the element at key `'seq'` on the *remote* object, going through pickling/unpickling, and creates a *new* proxy object `yourlist`. The proxies `mylist` and `yourlist` are different objects at different memory addresses, yet they both point to the same list in the server.
+
+
+## Bug in nested proxies
+
+
+Let's have a close look at the proxy as it is passed into the server and then out back. With `mydict['seq'] = mylist`, the proxy `mylist` (in the client process) is pickled, calling `BaseProxy.__reduce__`; then in the server process, `RebuildProxy` is called to create a proxy object. The code determines that it is running inside the server process (lines 25-26), hence it does two things:
+
+1. It passes `manager_owned=True` to `BaseProxy.__init__` (line 28). The effect of this parameter is that, in the proxy initiation, ref count is not incremented ([BaseProxy], lines 56-58); alos, later when the proxy is garbage collected, ref count is not decremented (because the finalizer setup is skipped).
+
+2. It adds an entry in `server.id_to_local_proxy_obj` with the same content about the remote object as the entry in `server.id_to_obj` (lines 29-31). Specifically, the entry is a tuple consisting of the list object (the real one in the server, not a proxy), the names of its exposed methods, and its `method_to_typeid` value ([Server], line 116). 
+
+These two actions suggest that a proxy that has been passed from outside of the server into it is not tracked by the server's `incref`/`decref` mechinism. Oddly, the `multiprocessing.managers` module does not contain a line that takes an entry off `server.id_to_local_proxy_obj`. (This is not that odd, though, because if there were such a line, it would likely be in `Server.decref` to be called when a in-server proxy is garbage collected, yet the first action has determined that the garbage collection of an in-server proxy does not trigger `decref`.) The server attribute `id_to_local_proxy_obj` is addressed at severl places, and I have not understood the author's design rational around this, but this is clearly a bug: `server.id_to_local_proxy_obj` only gets entries added and never gets entries removed. Once an in-server object is represented by an in-server proxy at any point, hence an entry for it is added to `server.id_to_local_proxy_obj`, then the object will live on in the server forever, even after all proxies (inside or outside of the server) to it have gone.
+
+We use an example to show this problem.
+
+```python
+from multiprocessing import get_context
+from multiprocessing.managers import SyncManager as _SyncManager, Server as _Server, ListProxy
+from pprint import pformat
+
+class Server(_Server):
+    def debug_info(self, c):
+        '''
+        Return some info --- useful to spot problems with refcounting
+        '''
+        # Perhaps include debug info about 'c'?
+        with self.mutex:
+            result = []
+            result.append('  id_to_refcount:')
+            for k, v in self.id_to_refcount.items():
+                if k != 0:
+                    result.append(f'      {k}: {v}')
+
+            result.append('  id_to_obj:')
+            for k, v in self.id_to_obj.items():
+                if k != '0':
+                    result.append(f'      {k}: {v[0]}')
+            result.append('  id_to_local_proxy_obj:')
+            for k, v in self.id_to_local_proxy_obj.items():
+                if k != '0':
+                    result.append(f'      {k}: {v[0]}')    
+
+            return '\n'.join(result)
+        
+
+class SyncManager(_SyncManager):
+    _Server = Server
+    
+
+
+def main():
+    with SyncManager(ctx=get_context('spawn')) as manager:
+        mydict = manager.dict(a=3, b=4)
+
+        print()
+        print('--- dict ---')
+        print(manager._debug_info())
+        print()
+
+
+        mylist = manager.list(['a', 'b', 'c', 'd'])
+
+        print()
+        print('--- dict and list ---')
+        print(manager._debug_info())
+        print()
+
+        mydict['c'] = mylist
+
+        print()
+        print('--- list added to dict ---')
+        print(manager._debug_info())
+        print()
+
+        assert type(mydict['c']) is ListProxy
+        assert mydict['c'][3] == 'd'
+
+        del mylist
+
+        print()
+        print('--- list proxy deleted from client space ---')
+        print(manager._debug_info())
+        print()
+
+        assert mydict['c'][2] == 'c'
+
+        del mydict['c']
+
+        print()
+        print('--- list deleted from dict ---')
+        print(manager._debug_info())
+        print()
+
+
+
+if __name__ == '__main__':
+    main()
+```
+
+Running this script got:
+
+```shell
+$ python3 test_serverside_proxy.py 
+
+--- dict ---
+  id_to_refcount:
+      7f14b45044c0: 1
+  id_to_obj:
+      7f14b45044c0: {'a': 3, 'b': 4}
+  id_to_local_proxy_obj:
+
+
+--- dict and list ---
+  id_to_refcount:
+      7f14b45044c0: 1
+      7f14b4504600: 1
+  id_to_obj:
+      7f14b45044c0: {'a': 3, 'b': 4}
+      7f14b4504600: ['a', 'b', 'c', 'd']
+  id_to_local_proxy_obj:
+
+
+--- list added to dict ---
+  id_to_refcount:
+      7f14b45044c0: 1
+      7f14b4504600: 1
+  id_to_obj:
+      7f14b45044c0: {'a': 3, 'b': 4, 'c': <ListProxy object, typeid 'list' at 0x7f14b44df880>}
+      7f14b4504600: ['a', 'b', 'c', 'd']
+  id_to_local_proxy_obj:
+      7f14b4504600: ['a', 'b', 'c', 'd']
+
+
+--- list proxy deleted from client space ---
+  id_to_refcount:
+      7f14b45044c0: 1
+  id_to_obj:
+      7f14b45044c0: {'a': 3, 'b': 4, 'c': <ListProxy object, typeid 'list' at 0x7f14b44df880>}
+  id_to_local_proxy_obj:
+      7f14b4504600: ['a', 'b', 'c', 'd']
+
+
+--- list deleted from dict ---
+  id_to_refcount:
+      7f14b45044c0: 1
+  id_to_obj:
+      7f14b45044c0: {'a': 3, 'b': 4}
+  id_to_local_proxy_obj:
+      7f14b4504600: ['a', 'b', 'c', 'd']
+```
+
+In this example, we created a dict and a list in the server, with proxies `mydict` and `mylist`, respectively. Then we added `mylist` (the proxy object, not the real list) to the dict. At this point, there are two entries in `server.id_to_refcount` (one for the dict, one for the list), two entries in `server.id_to_obj` (one for the dict, one for the list), and one entry in `server.id_to_local_proxy_obj` (for the list proxy in the dict).
+
+Then we deleted `mylist` in the client process, which caused the ref count of the list in `server.id_to_refcount` to drop to 0, therefore removed the entry for the list from `server.id_to_obj`. (If there were no other references to the list, then this removal would have made the list "orphaned" or "dangling", hence garbage collected. But, there is another reference to it---in `server.id_to_local_proxy_obj`, hence the list lives on.) At this point, there is one entry in `server.id_to_refcount` (for the dict), one entry in `server.id_to_obj` (for the dict), and one entry in `server.id_to_local_proxy_obj` (for the list proxy in the dict).
+
+Finally, we deleted the list proxy from the dict, using the dict proxy `mydict`. At this point, the list in the server became really orphaned---there is no proxy for it outside of the server and no user of it inside the server. However, it is referenced by the never-to-be-deleted entry in `server.id_to_local_proxy_obj`, hence the list will live on although it is no longer accessible from either the user space or the server space, because no code reaches into `server.id_to_local_proxy_obj` to excavate useful things.
+
+How can we fix this?
+
+My proposal is to treat all proxies, inside or outside the server process, in one consistent way. This involves two changes:
+
+1. Do not let `manager_owned=True` skip `incref` in proxy initialization ([BaseProxy], lines 12-13) and consequently `decref` in proxy teardown; let `incref` and `decref` take place whether `manager_owned` is `True` or `False` (also [BaseProxy], lines 56-58). This change will make sure deleting an in-server proxy object will trigger appropriate ref-count changes.
+2. Do not use `server.id_to_local_proxy_obj` and replicate entries to it from `server.id_to_obj`. Just use `server.id_to_obj` to track all proxies, inside or outside of the server.
+
+These changes are simple to make but involve multiple code blocks. We've omitted a listing of the code changes.
+After these changes, the parameter `manage_owned` for `BaseProxy.__init__` has no impact, hence this parameter may as well be removed altogether.

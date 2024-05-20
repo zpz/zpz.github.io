@@ -12,7 +12,7 @@ Async communication is like mails, whereas sync communication is like phone call
 
 I once had some need to enhance or customize or hack `multiprocessing.managers`. For that purpose, I read, re-read, and re-read its source code, trying to understand how it works. This article attempts to explain what I have understood. It can be treated as an annotated version of the [CPython 3.10 module multiprocessing.managers](https://github.com/python/cpython/blob/3.10/Lib/multiprocessing/managers.py). The code listings below omit segments that are not necessary to a basic understanding; some omissions are indicated by `...`.
 
-Contents:
+Sections:
 
   1. [Magnifier](#magnifier)
 
