@@ -5,30 +5,57 @@ excerpt_separator: <!--excerpt-->
 tags: [Python]
 ---
 
-In Part 1, we have seen a large portion of the functionalities that `multiprocessing.managers` has to offer.
-This article goes deeper than Part 1, most around the subject of memory management.<!--excerpt-->
+In [Part 1](https://zpz.github.io/blog/python-mp-manager-1/) of this series, we have seen a large portion of the functionalities that `multiprocessing.managers` has to offer.
+In this article, we will dive into some details, especially around memory management, to gain more understanding. Along the way, we are going to spot a few bugs or flaws in the standard library's implementation, and propose fixes.<!--excerpt-->
 
-Memory management is a critical concern we keep some things in the server process and use them via "proxies" that reside in other processes (yes there can be more than one client processes). There is no object references across process boundaries. The server does not have an existing way to know how many users exist for one specific server-side object, how they are changing, and when there is no more user and the object should be garbage collected. We need to go out of our usual way to track the ref count of each object created in the server and pointed to by proxies. The goal of this explicit book keeping is to make sure that an object is not garbage collected when it should not be, and is garbage collected when it should be.
+Memory management is a critical concern in the current context. We keep some things in the server process and interact with them via "proxies" that reside in other processes (yes there can be more than one client process, as will become commonplace in the following discussions). There is no Python object reference across process boundaries. The server does not have built-in tracking about how many users exist for any particular server-side object, how the users come and go, and when usership has dropped to zero, hence the server-side object should be garbage collected. As a result, the package `multiprocessing.managers` relies on "manual" bookkeeping to track the ref count of each server-side object. The goal of this bookkeeping is to make sure that an object is not garbage collected when it should not be, and is garbage collected when it should be.
+
+Let's fix a few terminologies:
+
+
+- "manager" or "manager object": instance of `BaseManager`.
+
+- "server process": the process launched and managed by the manager to run the server.
+
+- "server": the instance of `BaseManager.Server` that's running in the server process; "server" and "server process" are mostly used interchangeably.
+
+- "server-side" or "in-server" or "remote" or "target" object: an object that the server creates and keeps, and users interact with via proxies.
+
+- "proxy" or "proxy object": instance of `BaseProxy` that "references" or "represents" or "points to" a server-side object (i.e. its target object).
+
+- "client process" or "user process": the process where the manager runs and proxies reside, and other processes (other than the server process) where proxies have been passed into; user interacts with proxies in these processes. Proxy may reside in the server process or a client process.
+
+We first list relevant code blocks of the classes `Server`, `BaseManager`, and `BaseProxy` for later reference. Discussion starts right after the code listings.
 
 
 Sections:
 
-  1. [Server](#server)
+  1. [Code listings](#code-listings)
 
-  2. [BaseManager](#basemanager)
+     - [Server](#server)
 
-  3. [BaseProxy](#baseproxy)
+     - [BaseManager](#basemanager)
 
-  4. [Pickling](#pickling)
+     - [BaseProxy](#baseproxy)
 
-  5. [Bug in pickling](#bug-in-pickling)
+  2. [Tracking ref counts](#tracking-ref-counts)
 
-  6. [Bug related to pickling](#bug-related-to-pickling)
+     - [Creating a proxy](#creating-a-proxy)
 
-  7. [Nested proxies](#nested-proxies)
+     - [Returning a proxy](#returning-a-proxy)
 
-  8. [Bug in nested proxies](#bug-in-nested-proxies)
+  3. [Pickling](#pickling)
 
+  4. [Bug in pickling](#bug-in-pickling)
+
+  5. [Bug related to pickling](#bug-related-to-pickling)
+
+  6. [Nested proxies](#nested-proxies)
+
+  7. [Bug in nested proxies](#bug-in-nested-proxies)
+
+
+## Code listings
 
 ### Server
 
@@ -372,26 +399,27 @@ class BaseProxy(object):
 
 
 
-## Keeping track of ref counts
+## Tracking ref counts
 
 
 
 `Server` has methods `incref` and `decref`. They are called in `Server` code both for its own need and as requested by a proxy or manager from other processes.
-`BaseProxy` has methods `_incref` and `_decref`. They are called in `BaseProxy` to request `Server.incref` and `Server.decref` to be called on the object that the proxy "references".
-We will go over all these calls to confirm that they keep the ref count of an object in the server, which is represented by a proxy or proxies outside of the server (in other processes), correct as all times.
+`BaseProxy` has methods `_incref` and `_decref`. They are called in `BaseProxy` to request `Server.incref` and `Server.decref` to be executed on the proxy's target object.
+We will go over all these calls to confirm that they keep the ref count of a server-side object correct at all times.
 In this context, the correct behavior of a ref count is:
 
-- the ref count of an object in server is positive as long as there is at least one proxy "out there" for it, and in this situation the object remains alive
-- the ref count drops to 0 once the number of proxies for the object drops to 0, and at that point the object is garbage collected
+- The ref count of a server-side object is positive as long as there is at least one proxy "out there" for it, and in this situation the object remains alive.
+- The ref count drops to 0 once the number of proxies for the object drops to 0, and at that point the object is garbage collected.
 
-The following is not necessary but is likely the actual behavior (for most of the time):
+The following is not necessary but is preferably the actual behavior:
 
-- the ref count is equal to the number of proxies "out there" for the object in question
+- The ref count is equal to the number of proxies "out there" for the object in question.
 
-There are two cases where an object is created in the server and a proxy is created for it in other processes.
-The first case is by calling a method that is defined on `BaseManager` in `BaseManager.register` thanks to the parameter `create_method=True`.
-The second case is by calling a method on a proxy, and as a result the eventual method that is called on the server object (in the server process) is in the `method_to_typeid` record of the class registration.
+There are two cases where an object is created in the server and a proxy is created for it in client processes.
+The first case is by calling a method of `BaseManager` that is programmatically defined by `BaseManager.register` thanks to the parameter `create_method=True`.
+The second case is by calling a method of a registered class, *via a proxy*, that appears in `method_to_typeid` of the registry of the class.
 Let's call the two cases "create a proxy" and "return a proxy", respectively.
+The two cases go through different code paths in both the server and client processes.
 
 ### Creating a proxy
 
@@ -891,7 +919,43 @@ usually this value is `True`. Why don't we just use `incref=False` to skip the `
 
 ## Bug related to pickling
 
-about `proxytype` in `BaseProxy._callmethod` when receiving a "PROXY" return...
+There is another bug, or defect, that is related to pickling.
+First, we observe that a `BaseManager` object can not be pickled because it contains some things (at least the server process object) that can not be pickled. The thought of pickling a manager and using it in another process probably does not make much sense.
+With this observation, we see that `BaseProxy.__reduct__` does not carry the manager object, therefore a proxy object out of unpickling has `manager=None` in its `BaseProxy.__init__`.
+
+Now look at `BaseProxy._callmethod` ([BaseProxy], line 42). After a proxy-returning method is called, the manager object is needed to construct a proxy for the method's response ([BaseProxy], line 44). This suggest: *if we pass a proxy to another process, then in the other process, we can not call proxy-returning methods on the proxy*.
+
+This is rather suprising and undesirable in that the (seemingly) same proxy object in different processes have different capabilities. I would consider is a bug.
+
+So, can we fix this? The breaking line in `_callmethod` obtains `proxytype` from the registry on the manager. The natural question is, can we obtain `proxytype` from somewhere else?
+
+Of course, the server also has a copy of the registry. The solution is to return the relevant registry info from the remote method call. In `Server.serve_client` ([Server], lines 46-49), we would change
+
+{% highlight python %}
+msg = ('#PROXY', (rexposed, token))
+{% endhighlight %}
+
+to
+
+{% highlight python %}
+msg = ('#PROXY', (rexposed, token, self.registry[typeid][-1]))
+{% endhighlight %}
+
+Then in `BaseProxy._callmethod` ([BaseProxy], lines 43-52), change
+
+{% highlight python %}
+exposed, token = result
+proxytype = self._manager._registry[token.typeid][-1]
+{% endhighlight %}
+
+to
+
+{% highlight python %}
+exposed, token, proxytype = result
+{% endhighlight %}
+
+
+This fixes the problem. After these changes, the few mentions to the manager reference in the proxy object seem to be inconsequential, hence it may be okay to remove the parameer `manager` to `BaseProxy.__init__`.
 
 
 ## Nested proxies
