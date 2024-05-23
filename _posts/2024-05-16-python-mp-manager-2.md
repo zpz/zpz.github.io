@@ -423,34 +423,34 @@ The two cases go through different code paths in both the server and client proc
 
 ### Creating a proxy
 
-When creating a proxy, the "creation method" that is dynamically defined in `BaseManager.register` ([BaseManager], lines 45-54) is called.
+When creating a proxy, the "creation method" that is dynamically defined in `BaseManager.register` ([BaseManager], lines 45-54) is called, going through the following steps:
 
 1. `BaseManager._create` ([BaseManager], lines 6-16) is called, which in turn calls `Server.create` ([Server], lines 87-121).
-2. The proxy object is crated ([BaseManager], lines 48-51).
+2. The proxy object is crated ([BaseManager], lines 48-51) based on the info returned from the last step as well as registration info.
 3. `Server.decref` is called ([BaseManager], lines 52-53; [Server], lines 141-167).
 
-In `Server.create`, the object gets cached in `id_to_obj` of the server object; its ref count is tracked in `id_to_refcount` of the server object and is initialized to 0. Then, `Server.incref` is called to inc the ref count by 1.
+In `Server.create`, the object gets cached in the dict attribute `id_to_obj` of the server; its ref count is tracked in `id_to_refcount` of the server and is initialized to 0. Then, `Server.incref` is called to inc the ref count by 1.
 Hence, the ref count is normally 1 before the server responds to the manager.
-This remains the status at the end of step 1.
+This remains the status till the beginning of step 2.
 
-When the proxy object is created, `BaseProxy.__init__` calls `BaseProxy._incref` to inc the ref count by 1 ([BaseProxy], lines 12-13). Hence, upon creation of the proxy object, the ref count is 2. This is the status at the end of step 2.
+When the proxy object is created, `BaseProxy.__init__` calls `BaseProxy._incref` to inc the ref count by 1 ([BaseProxy], lines 12-13). Hence, upon creation of the proxy object, the ref count is 2, that is, 1 more than the correct value. This is the status at the end of step 2.
 
-In step 3, the manager calls the server to dec the ref count by 1, reducing the ref count from 2 to 1.
+In step 3, the manager calls the server to dec the ref count by 1, reducing it to the correct value 1.
 
-At the time when the user receives the proxy object, the server tracks its ref count to be 1. All is good.
+At the time when the user receives the proxy object, the server tracking indicates the target object has a ref count 1, that is, there is one proxy object "out there in the wild" referencing it. All is good.
 
-But the journey is bumpy. Why inc, inc, dec? Can't we just set it to 1 and be done with it?
+But the journey is bumpy. Why inc, inc, dec? Can't we just set it to 1 and be done with it? If we do that, we need to decide where to do it: by the server, by the proxy initializer, or by the manager before or after proxy object creation? What could go wrong?
 
-There's one caveat in `Server.create` during book keeping ([Server], lines 117-118):
+Let's deviate a little and see a caveat in `Server.create` during bookkeeping ([Server], lines 117-118):
 
-```python
+{% highlight python %}
             if ident not in self.id_to_refcount:
                 self.id_to_refcount[ident] = 0
-```
+{% endhighlight %}
 
-Why the check here? The object is just created, how can its ref count already be tracked?
-There's at least one scenario I can think of: the object does not have to be brand new.
-It can be an existing object retrieved from some cache. This is completely possible because, for one thing,
+This suggests that, although the remote object appears to have just been created, it does not have to be a new object; it could already be in the tracker. In the case of an object already in the tracker, the server just increments the existing ref count by 1.
+There's at least one scenario I can think of: the user function (`callable` on [Server], line 101) may very well retrieve an existing object from some cache it is maintaining.
+This is completely possible because, for one thing,
 the thing registered with `BaseManager` does not have to be a *class*; it can very well be a function.
 We can show this scenario with an example:
 
@@ -525,50 +525,49 @@ debug_info:   7f3702d168f0:       refcount=2
     <__mp_main__.Magnifier object at 0x7f3702d168f0>
 ```
 
-`Server.create` sets the ref count to 0 only if the entry does not exist;
-otherwise it's left untouched ([Server], lines 117-118). The rational is simple: if the object is already being targeted (by one or more proxies), it already has a positive ref count. Now another proxy is going to target the same object, we must not reset the existing ref count, and should just increment it by 1 for the new proxy.
+This clearly shows that the two proxies, `mag2` and `mag2_another`, reference the same remote object, which has a ref count of 2.
 
-Do we have to increment the ref count in the server? Can we leave this task to the user (the requester in other processes)?
+Now we can ask this question: can we leave the work of "incref" to the user, that is, the server initializes the refcount to 0 or leaves it as is?
 
-No. Consider this scenario in the example above:
+The answer is "No". Consider this scenario in the example above:
 
 Suppose in thread A we call `manager.Mag(2)` to get a proxy to use.
 Then in thread B we call `manager.Mag(2)` to get another proxy for unrelated use.
-The server gets a `Magnifier` object but it's the same one that thread A is using, with a ref count 1,
-Imagine, just as the server is sending back message to B's call without touching the ref count,
-the proxy in thread A is deleted, which requests server to dec the ref count, which drops to 0, and the `Magnifier` object in the server is deleted.
-When thread B receives server response, it will create a proxy pointing to a remote object that has just disappeared.
+The server gets a `Magnifier` object but it's the same one that thread A is using, with a ref count 1.
+Imagine, just as the server is sending a response to B without touching the ref count,
+the proxy in thread A is deleted, which requests the server to dec the ref count, causing it to drop to 0, hence the `Magnifier` object in the server is deleted.
+When thread B receives the server's response with address info of the remote object, it will create a proxy, pointing to a remote object that has just disappeared.
 
-In conclusion, the call to `incref` in the server ([Server], line 120) is necessary. The server must hold a spot for the proxy before the proxy object comes into being.
+This scenario makes the point that the call to `incref` in the server ([Server], line 120) is necessary. The server must hold a spot for the proxy before the proxy object comes into being.
 
 Now that the server has got the ref count right, why do we inc, and then dec, on the user side?
 
-For one thing, a new proxy may be created for an existing remote object without the server's knowledge. This happens when a proxy is passed to another process, increasing the remote object's usership by 1. In concept, it feels right that whenever a proxy object is created, the target remote object gets one more ref count, hence the `incref` call in `BaseProxy.__init__` ([BaseProxy], lines 12-13). This explains the countering `decref` after the proxy's creation ([BaseManager], lines 52-53).
+For one thing, a new proxy may be created for an existing remote object without the server's knowledge. This happens when a proxy is passed to another process, increasing the remote object's usership by 1. In concept, it feels right that whenever a proxy object is created, the target object gets one more ref count, hence the `incref` call in `BaseProxy.__init__` ([BaseProxy], lines 12-13). This explains the countering `decref` after the proxy's creation ([BaseManager], lines 52-53).
 
-The need of locking during object creation and ref count modification in the server ([Server], lines 91-118, 124-139, 147-155) may be explained in smilar scenarios, where multiple threads in the server are trying to work on the same object.
+The need of locking during object creation and ref count modification in the server ([Server], lines 91-118, 124-139, 147-155) can be explained with similar scenarios, where multiple threads in the server are trying to work on the same object.
 
 `BaseProxy._incref` is called only once in the lifetime of a proxy object. At the end of this method, a finalizer is created for this object ([BaseProxy], lines 68-73). The finalizer is invoked when the object is garbage collected.
 (For a reference on such finalizers, see [this blog post](https://zpz.github.io/blog/guaranteed-finalization-without-context-manager/).)
-The finalizer calls `BaseProxy._decref`, which requests the server to dec the ref count of its target object. In `Server.decref`, if the ref count of an object drops to 0, it makes sure the object is garbage collected ([Server], lines 157-167).
+The finalizer calls `BaseProxy._decref`, which requests the server to dec the ref count of the proxy's target object. In `Server.decref`, if the ref count drops to 0, it removes the object from its dict cache, `id_to_obj` ([Server], lines 157-167). Often, this removal causes the server-side object to become dangling, and is subsequently garbage collected.
 
 
 ### Returning a proxy
 
-Calling a proxy method to return another proxy primarily entails a call to `BaseProxy._callmethod`. The following happens in order:
+Calling a "remote method" via a proxy primarily entails a call to `BaseProxy._callmethod`. When the call returns a new proxy (as opposed to any "regular" Python value), the following happens in order:
 
-1. The proxy connects to the server and sends its request ([BaseProxy], lines 29-38, which is handled by `Server.serve_client` ([Server], lines 20-51).
+1. The proxy connects to the server and sends a request ([BaseProxy], lines 29-51), which is handled by `Server.serve_client` ([Server], lines 20-51).
 2. A new proxy object is created based on the response from the server ([BaseProxy], lines 43-49).
-3. Make a request to the server to call its `decref` on the target object of the proxy ([BaseProxy], lines 50-51).
+3. A request is made to the server to call its `decref` on the target object of the new proxy ([BaseProxy], lines 50-51).
 
-Steps 2 and 3 are very similar to the steps 2 and 3 in the "creating a proxy" case. The only difference is that, when creating a proxy, the steps 2 and 3 happen in the manager, whereas when returning a proxy, the steps 2 and 3 happen in a proxy object.
+Steps 2 and 3 are very similar to the steps 2 and 3 in the "creating a proxy" case. The only difference is that, when creating a proxy, these steps happen in the manager, whereas when returning a proxy, these steps happen in a proxy object.
 
 The difference in step 1 of the two cases is on the server side.
 In `Server.serve_client`, after we have called the requested method on the target object
 ([Server], lines 21-41), we check whether this method should return a proxy
-([Server], lines 45). Note that `gettypeid` is the by-now-familiar `method_to_typeid`, and `typeid` is a registered `typeid` as indicated in `method_to_typeid`. If `typeid` is not `None`, we call `Server.create` ([Server], lines 46-49). Note that in this call, the result, `res`, of the request function is passed to `create` as the sole parameter after the connection object and `typeid`. The makes for some different situations compared to when `Server.create` is called by the manager.
+([Server], lines 45-46). Note that `gettypeid` is the by-now-familiar `method_to_typeid`, which is a dict mapping method name to registered `typeid`. If `typeid` is not `None`, we call `Server.create` ([Server], lines 46-49) to get proxy info. Note that the result (`res`) of the requested method is passed to `create` as the sole parameter after the connection object and `typeid`. The makes for some different situations compared to when `Server.create` is called by the manager.
 
-Specifically ([Server], lines 95-101), if the `callable` for the registered class represented by `typeid` is `None`, then `res` becomes the remote object.
-On the other hand, if `callable` is not `None`, it is called with `res` as the sole, positional argument. Let's drive this home with an example.
+Specifically ([Server], lines 95-101), if the `callable` for the registered class represented by `typeid` is `None`, then `res` becomes the remote object "as is".
+On the other hand, if `callable` is not `None`, it is called with `res` as the sole, positional argument, and the output of that becomes the remote object. Let's drive this home with an example.
 
 ```python
 # clone.py
@@ -592,14 +591,18 @@ class Magnifier:
 
 
 
-BaseManager.register('Magnifier', callable=Magnifier, 
-                     method_to_typeid={'spawn': 'Magnifier', 'clone': 'ClonedMagnifier'},
-                     )
-BaseManager.register('ClonedMagnifier', callable=None, 
-                     exposed=('scale', 'clone', 'spawn'), 
-                     method_to_typeid={'spawn': 'Magnifier', 'clone': 'ClonedMagnifier'}, 
-                     create_method=False,
-                     )
+BaseManager.register(
+    'Magnifier', 
+    callable=Magnifier, 
+    method_to_typeid={'spawn': 'Magnifier', 'clone': 'ClonedMagnifier'},
+    )
+BaseManager.register(
+    'ClonedMagnifier', 
+    callable=None, 
+    exposed=('scale', 'clone', 'spawn'), 
+    method_to_typeid={'spawn': 'Magnifier', 'clone': 'ClonedMagnifier'}, 
+    create_method=False,
+    )
 
     
 def main():
@@ -683,25 +686,36 @@ $ python3 clone.py
 ```
 
 We want `clone` and `spawn` to return proxies for `Magnifier` objects.
-Because `clone` returns a `Magnifier` object, we don't want any further changes to it, hence we need to link it, in `method_to_typeid`, to a registered "typeid" that has no callable.
-In addition, the "typeid" should have a proxy class that works for `Magnifier`. We choose to let `AutoProxy` create a proxy class for us, and all we need to do is to tell it what methods should be exposed. This is necessary because, given `callable=None`, the code has no way to infer "public methods" by itself (from nothing!). We also take care to use `create_method=False`. After all, there is no class for function called `"ClonedMagnifier"`. The registration is purely "free" instructions about how to handle the result of `Magnifier.clone`.
+Because `clone` returns a `Magnifier` object, we don't want any further changes to it, hence we need to connect it, in `method_to_typeid`, to a registered "typeid" that has no callable.
+In addition, the "typeid" should have a proxy class that works for `Magnifier`. 
+Apparently, the registered `'Magnifier'` does not work because it has a callable.
+We register a new entity called `'ClonedMagnifier'`.
 
-For `spawn`, we choose to link it, in `method_to_typeid`, to the registered `"Magnifier"`. However, since the registered `"Magnifier"` has a callable, `Magnifier.spawn` can not return the final thing. Instead, it must return a single value that is going to be passed to the callable, which will return a `Magnifier`.
+We don't have a custom proxy class for `Magnifier`, but the class `Magnifier` is simple enough to `AuthProxy`.
+Hence in the registration we do not specify a proxy class (hence `AuthProxy` will be used).
+The argument `exposed` is optional in this case. 
+We take care to specify `callable=None` and `create_method=False`.
+This registration is purely instructions about how to handle the result of `Magnifier.clone`.
 
-Now, a natural question is: what are the needs for these two different paths? (To be answered ...)
+In contrast, `method_to_typeid` connects the method `spawn` to the registered `'Magnifier'`.
+However, since this registry has a callable, `spawn` can not output the final thing. Instead, its output is passed to the callable, which will return the desired `Magnifier` object.
+
+The design for these two situations is somewhat confusing. The method `spawn` certainly does not look like it intends to return a `Magnifier` object. It is more a demo of the usage than a natural use case.
+
 
 
 ## Pickling
 
 
 
-A proxy object can be passed to another process, in there to act as another independent communicator to the remote object in the server.
-To be passed across processes, a proxy needs to be pickled and unpickled. However, this can not rely on the default behavior of `pickle`, because for one thing, it would not work! (A proxy object may have some attributes that are not pickleable.)
-Moreover, a proxy object has some special considerations to take care of. Therefore, `BaseProxy` implements the special method `__reduce__` to control pickling.
+A proxy object can be passed to another process, in which it acts as another independent communicator to the remote object in the server.
+This raises the question of how a proxy object is pickled and unpickled.
+`BaseProxy` implements the special method `__reduce__` to have precise control over pickling.
 
-`__reduce__` (listed below) returns a tuple of two elements; the first is a function that is going to be called during unpickling to create the new object; the second is a tuple of parameters for the first element. This tuple is pickled and then used during unpickling.
-Depending on whether the proxy object has been created by `AutoProxy` or is an instance of a hand-rolled class, 
-`__reduce__` instructs unpickling to call `RebuildProxy` (listed below) with `AutoProxy` or the hand-rolled class along with a few other parameters. The other parameters are a few very basic and indispensible attributes of the proxy. Many other attributes of the proxy are left out.
+As listed below, `__reduce__` returns a tuple of two elements. This tuple is pickled and unpickled. 
+Upon unpickling, the first element, `RebuildProxy`, is called with arguments provided by the second element. 
+The arguments are a few very basic and indispensible attributes of the original proxy; many other attributes of the proxy are left out.
+The output of the call is the re-constructed proxy.
 
 
 ```python
@@ -744,7 +758,7 @@ def RebuildProxy(func, token, serializer, kwds):
     return func(token, serializer, incref=incref, **kwds)
 ```
 
-In `RebuildProxy`, the first two lines test whether this function is being run in the server process that manages this proxy's target object. This is facilitated by one line in `Server.serve_forever`, which assigns the server object to the process as an attribute named "_manager_server".
+In `RebuildProxy`, the first two lines test whether this function is being run in the server process that manages this proxy's target object. This test is made possible by one line in `Server.serve_forever`, which assigns the server object to the process as an attribute named "_manager_server".
 
 {% highlight python %}
 class Server(object):
@@ -760,9 +774,11 @@ If the test turns out positive, then the target object is cached in `server.id_t
 
 The determination of `incref` (lines 32-35) involves the attribute `_inheriting` of the process. I do not understand this attribute, but experiments showed its value varies and is important.
 
-If `manager_owned` is `True`, then `BaseProxy.__init__` does not call `BaseProxy._incref` ([BaseProxy], lines 12-13), i.e, it does not increment the ref count of the remote object.
-Importantly, `_incref` assigns a finalizer ([BaseProxy], lines 68-73), which decrement the ref count when the proxy object is garbage collected.
-Now that `_incref` is not called during initialization, `_decref` is not called either during garbage collection, which makes sense. (But, we'll come back to this.)
+If `manager_owned` is `True`, then `BaseProxy.__init__` does not call `BaseProxy._incref` ([BaseProxy], lines 12-13), i.e, it does not increment the ref count of the target object.
+Importantly, `_incref` assigns a finalizer ([BaseProxy], lines 68-73), which decrements the ref count when the proxy object is garbage collected.
+If initialization does not call `_incref`, destruction does not call `_decref` either, which is consistent. (But, we'll come back to this.)
+
+In summary, if unpickling takes place in the server process, the new proxy does not inc ref count at initialization and does not dec ref count at destruction. On the other hand, if unpickling takes place in any other process, the new proxy increments the ref count at initialization and decrements the ref count at destruction. Both cases are self consistent in terms of ref count.
 
 
 ## Bug in pickling
@@ -770,8 +786,9 @@ Now that `_incref` is not called during initialization, `_decref` is not called 
 
 One likely use case of pickling is to pass a proxy to another process via a queue.
 There is a delay between a proxy is put in a queue (in one process) and it is taken out of the queue (in another process).
-During the delay, if the proxy in the first process is garbage collected, triggering the target object in the server to be garbage colleted (because at that moment there is not other proxy for the object), then when the second process gets the proxy from the queue, the proxy references a remote object that no long exists!
-This is not really a corner case; it happens easily if the proxy in the first process is created in a loop.
+During the delay, if the proxy in the first process is garbage collected, it would decrement the target object's ref count by 1. If that reduces the ref count to 0, then the target object would be garbage collected.
+In that case, when the second process gets the proxy from the queue, the proxy would be referencing a remote object that does not exist!
+This is not nearly a corner case; it happens easily if the proxy in the first process is created in a loop.
 Let's make up an example to show this issue.
 
 
@@ -823,6 +840,10 @@ def main():
 if __name__ == '__main__':
     main()
 ```
+
+The example simulates a situation where we create objects in the server process in a loop
+and put proxies to these objects in a queue. Another process uses the proxies taken out of the queue.
+The proxy object in the main process is short-lived because `scaler` will be assigned to another proxy in the next round of the loop. For any one proxy, if it is reconstructed in the worker process before its symbol `scaler` is re-assigned, all is good. This is the case in the code above because the proxy-producing loop is 10x slower than the proxy-consuming loop.
 
 Running this script got
 
@@ -879,11 +900,13 @@ KeyError: '7fc53f42feb0'
 ---------------------------------------------------------------------------
 ```
 
-In this case, the main process sleeps 0.01 seconds before going to the next loop and re-assigning `scaler` to another proxy object, thereby garbage collect the previous proxy object. In the other process, it sleeps 0.1 seconds between loops. As a result, by the time the next element is taken out of the queue, the remote object has already been garbage collected.
+In this case, the main process sleeps 0.01 seconds before going to the next loop and re-assigning `scaler` to another proxy object, thereby garbage collects the previous proxy object (and its corresponding target object). In the worker process, it sleeps 0.1 seconds between loops. As a result, by the time the second proxy is taken out of the queue, its remote object has been destroyed already. This scenario is *not* a rare, special one.
 
-On the client side (in the worker process), the error happens in `BaseProxy.__init__` when it tries to increment the ref count of the remote object ([BaseProxy], lines 13, 61). In the server, the error happens in the method `Server.incref` ([Server], line 126), where the object with the requested identifier does not exist.
+On the client side in the worker process, the error happens in `BaseProxy.__init__` when it tries to increment the ref count of the remote object ([BaseProxy], lines 13, 61). In the server, the error happens in the method `Server.incref` ([Server], line 126), where the object with the specified identifier does not exist.
 
-Because this scenario is not a *rare*, *special* one, I consider this a bug in the standard library. We realize that the purpose of pickling a proxy in this context is to use it (probably always) in another process; the purpose is never persistence. The problem is that during the time between pickling and unpickling, the ref count that the future new object (out of unpickling) is to claim may lose the basis---the object for the ref count may be garbage collected. A fix is, simply, claim the spot preemptively. In other words, we do `incref` during pickling instead of unpickling. The fix is listed below.
+We realize that the purpose of pickling a proxy in this context is to use it (probably always) in another process; the purpose is never persistence. In other words, the unpickling *will happen*. Since the issue is that ref counting at unpickling may be too late, the **solution** is to do that preemptively at pickling.
+(This reasoning is the same as the `incref` in `Server.create`; [Server], line 120.)
+The fix is listed below.
 
 
 ```python
@@ -907,29 +930,29 @@ def RebuildProxy(func, token, serializer, kwds):
     # Above is original code of `RebuildProxy`, just don't return yet.
 
     # Fix: counter the extra `incref` that's done in the line above---
-    conn = self._Client(obj._token.address, authkey=obj._authkey)
-    dispatch(conn, None, 'decref', (obj._id, ))
+    if incref:
+        conn = self._Client(obj._token.address, authkey=obj._authkey)
+        dispatch(conn, None, 'decref', (obj._id, ))
 
     return obj
 ```
 
-In the revised `RebuildProxy`, we do not change the original logic of `incref` that is passed to `func`;
-usually this value is `True`. Why don't we just use `incref=False` to skip the `incref`, since we have already done it in `__reduce__`? The reason is that `incref=True` let's `BaseProxy.__init__` call `BaseProxy._incref`, which in addition to calling `incref` on the server, setting up a finalizer to be called during garbage collection of the proxy object, and the finalizer calls `decref` on the server. We need this finalizer, hence we let the extra `incref` to happen in the call to `func`, and counter the effect with a `decref` right after the proxy's creation.
+In the revised `RebuildProxy`, we do not change the original logic of `incref` that is passed to `func` (and eventually `BaseProxy.__init__`);
+usually this value is `True`. Why don't we just use `incref=False` to skip the increment, since we have already done it in `__reduce__`? The reason is we need the finalizer that's set up in `BaseProxy._incref` ([BaseProxy], lines 68-73). We counter the extra `incref` by a `decref` right after the proxy object is created.
 
 
 ## Bug related to pickling
 
 There is another bug, or defect, that is related to pickling.
-First, we observe that a `BaseManager` object can not be pickled because it contains some things (at least the server process object) that can not be pickled. The thought of pickling a manager and using it in another process probably does not make much sense.
-With this observation, we see that `BaseProxy.__reduct__` does not carry the manager object, therefore a proxy object out of unpickling has `manager=None` in its `BaseProxy.__init__`.
+First, we observe that a `BaseManager` object can not be pickled because it contains some things (at least the server process object) that can not be pickled. The idea of pickling a manager and using it in another process probably does not make much sense anyway.
+With this observation, we notice that `BaseProxy.__reduce__` does not pass along the `_manager` attribute of the original proxy, therefore a proxy object out of unpickling has argument `manager=None` to its `BaseProxy.__init__`.
 
-Now look at `BaseProxy._callmethod` ([BaseProxy], line 42). After a proxy-returning method is called, the manager object is needed to construct a proxy for the method's response ([BaseProxy], line 44). This suggest: *if we pass a proxy to another process, then in the other process, we can not call proxy-returning methods on the proxy*.
+Now look at `BaseProxy._callmethod` ([BaseProxy], line 42). After a proxy-returning method is called, the manager object is needed to construct a proxy for the method's response ([BaseProxy], line 44). This suggests: *if we pass a proxy to another process, then in the other process, we can not call proxy-returning methods on the proxy*.
+This is rather suprising and broken in that the (seemingly) same proxy objects in different processes have different capabilities.
 
-This is rather suprising and undesirable in that the (seemingly) same proxy object in different processes have different capabilities. I would consider is a bug.
+Can we fix this? The breaking line in `_callmethod` obtains `proxytype` from the registry on the manager. The natural question is, can we obtain `proxytype` from somewhere else?
 
-So, can we fix this? The breaking line in `_callmethod` obtains `proxytype` from the registry on the manager. The natural question is, can we obtain `proxytype` from somewhere else?
-
-Of course, the server also has a copy of the registry. The solution is to return the relevant registry info from the remote method call. In `Server.serve_client` ([Server], lines 46-49), we would change
+Definitely, the server also has a copy of the registry. The solution is to return the relevant registry info from the remote method call. In `Server.serve_client` ([Server], lines 46-49), change
 
 {% highlight python %}
 msg = ('#PROXY', (rexposed, token))
@@ -955,7 +978,7 @@ exposed, token, proxytype = result
 {% endhighlight %}
 
 
-This fixes the problem. After these changes, the few mentions to the manager reference in the proxy object seem to be inconsequential, hence it may be okay to remove the parameer `manager` to `BaseProxy.__init__`.
+This fixes the problem. After these changes, the few mentions to the manager object in the proxy object seem to be inconsequential, hence it may be okay to remove the parameer `manager` to `BaseProxy.__init__`.
 
 
 ## Nested proxies
