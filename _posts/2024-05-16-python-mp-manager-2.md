@@ -54,6 +54,10 @@ Sections:
 
   7. [Bug in nested proxies](#bug-in-nested-proxies)
 
+  8. [Exposed methods](#exposed-methods)
+
+  9. [Exceptions in the server](#exceptions-in-the-server)
+
 
 ## Code listings
 
@@ -1194,3 +1198,12 @@ My proposal is to treat all proxies, inside or outside the server process, in on
 
 These changes are simple to make but involve multiple code blocks. We've omitted a listing of the code changes.
 After these changes, the parameter `manage_owned` for `BaseProxy.__init__` has no impact, hence this parameter may as well be removed altogether.
+
+
+## Exposed methods
+
+## Exceptions in the server
+
+
+Fixes and changes to the standard module that are discussed in this article are implemented in
+[the module `mpservice.multiprocessing.server_process` of the package `mpservice`](https://github.com/zpz/mpservice).
