@@ -3,10 +3,9 @@
 # View it in a browser at localhost:4000
 
 
-docker run --rm -it \
-    --label=jekyll \
+docker run --rm \
     -v $(pwd):/srv/jekyll \
     -p 127.0.0.1:4000:4000 \
-    jekyll/jekyll:4.2.0 \
+    jekyll/jekyll:3.5 \
     jekyll serve
 

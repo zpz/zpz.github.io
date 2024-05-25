@@ -12,7 +12,7 @@ Async communication is like mails, whereas sync communication is like phone call
 
 I once had some need to enhance or customize or hack `multiprocessing.managers`. For that purpose, I read, re-read, and re-read its source code, trying to understand how it works. This article attempts to explain what I have understood. It can be treated as an annotated version of the [CPython 3.10 module multiprocessing.managers](https://github.com/python/cpython/blob/3.10/Lib/multiprocessing/managers.py). The code listings below omit segments that are not necessary to a basic understanding; some omissions are indicated by `...`.
 
-Contents:
+Sections:
 
   1. [Magnifier](#magnifier)
 
@@ -1282,3 +1282,5 @@ Note that the proxy class does not expose the method `__iter__`. It is not neces
 The utilities for inter-process synchronization (lock, event, semaphore, etc) and data sharing (queues)
 are supported by `threading` utilities in the server; they gain inter-process capabilities thanks to the multiprocessing *manager* mechanism.
 Beyond this simplicity (and elegance) in implementation, it's unclear how they compare to their multiprocessing counterparts (from `multiprocessing.synchronize` and `multiprocessing.queues`) in terms of efficiency and capabilities. These utilities are based on a "lock and check" logic. They do not use the "request and wait" logic that is fundamental to interactivity, which is enabled by the manager mechanism. It might have been a reasonable alternative design to leave out the "mails", and focus on the "phone calls" only.
+
+The story continues in [Part 2](https://zpz.github.io/blog/python-mp-manager-2/).
