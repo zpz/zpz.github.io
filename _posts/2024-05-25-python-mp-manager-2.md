@@ -908,7 +908,7 @@ In this case, the main process sleeps 0.01 seconds before going to the next loop
 
 On the client side in the worker process, the error happens in `BaseProxy.__init__` when it tries to increment the ref count of the remote object ([BaseProxy], lines 13, 61). In the server, the error happens in the method `Server.incref` ([Server], line 126), where the object with the specified identifier does not exist.
 
-We realize that the purpose of pickling a proxy in this context is to use it (probably always) in another process; the purpose is never persistence. In other words, the unpickling *will happen*. Since the issue is that ref counting at unpickling may be too late, the **solution** is to do that preemptively at pickling.
+We realize that the purpose of pickling a proxy in this context is to use it (probably always) in another process; the purpose is never persistence. In other words, the unpickling *will happen*. Since the issue is that ref counting at unpickling may be too late, the solution is to do that preemptively at pickling.
 (This reasoning is the same as the `incref` in `Server.create`; [Server], line 120.)
 The fix is listed below.
 
