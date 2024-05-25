@@ -1030,22 +1030,26 @@ len(mylist): 3
 third
 ```
 
-The statement `mydict['seq'] = mylist` assigns the *proxy* `mylist` to the key `'seq'` on the dict **inside the server** (i.e. the dict that the proxy `mydict` represents, but the `mydict` itself).
-The statement `yourlist = mydict['seq']` gets the element at key `'seq'` on the *remote* object, going through pickling/unpickling, and creates a *new* proxy object `yourlist`. The proxies `mylist` and `yourlist` are different objects at different memory addresses, yet they both point to the same list in the server.
+The statement `mydict['seq'] = mylist` assigns the *proxy* `mylist` to the key `'seq'` in the dict inside the server. Repeat: the **server-side** dict (not the proxy object `mydict`) now contains an entry that is a proxy object.
+The proxy object `mylist` was pickled, passed into the server process, unpickled, and added to the dict.
+The statement `yourlist = mydict['seq']` gets the value at the specified key in the remote object, that is,
+the proxy object in the server-side dict got pickled, passed out of the server process, and unpickled to a *new* proxy object `yourlist`.
+The proxies `mylist` and `yourlist` are different objects at different memory addresses, yet they both point to the same list in the server.
+The proxy in the server-side dict is a third proxy pointing to the same list.
 
 
 ## Bug in nested proxies
 
 
-Let's have a close look at the proxy as it is passed into the server and then out back. With `mydict['seq'] = mylist`, the proxy `mylist` (in the client process) is pickled, calling `BaseProxy.__reduce__`; then in the server process, `RebuildProxy` is called to create a proxy object. The code determines that it is running inside the server process (lines 25-26), hence it does two things:
+Let's have a close look at the proxy as it is passed into the server and then out back. With `mydict['seq'] = mylist`, the proxy `mylist` (in the client process) is pickled, calling `BaseProxy.__reduce__`; then in the server process, `RebuildProxy` is called to create a proxy object. Realizing that it is running inside the server process ([pickling], lines 25-26), the code does two things:
 
-1. It passes `manager_owned=True` to `BaseProxy.__init__` (line 28). The effect of this parameter is that, in the proxy initiation, ref count is not incremented ([BaseProxy], lines 56-58); alos, later when the proxy is garbage collected, ref count is not decremented (because the finalizer setup is skipped).
+1. It passes `manager_owned=True` to `BaseProxy.__init__` ([pickling], line 28). The effect of this argument is that, in the proxy initiation, ref count is not incremented ([BaseProxy], lines 56-58); alos, later when the proxy is garbage collected, ref count is not decremented (because the finalizer setup is skipped).
 
-2. It adds an entry in `server.id_to_local_proxy_obj` with the same content about the remote object as the entry in `server.id_to_obj` (lines 29-31). Specifically, the entry is a tuple consisting of the list object (the real one in the server, not a proxy), the names of its exposed methods, and its `method_to_typeid` value ([Server], line 116). 
+2. It adds an entry in `server.id_to_local_proxy_obj` with the same content about the remote object as the entry in `server.id_to_obj` ([pickling], lines 29-31). Specifically, the entry is a tuple consisting of the list object (the real one in the server, not a proxy), the names of its exposed methods, and its `method_to_typeid` value ([Server], line 116). 
 
-These two actions suggest that a proxy that has been passed from outside of the server into it is not tracked by the server's `incref`/`decref` mechinism. Oddly, the `multiprocessing.managers` module does not contain a line that takes an entry off `server.id_to_local_proxy_obj`. (This is not that odd, though, because if there were such a line, it would likely be in `Server.decref` to be called when a in-server proxy is garbage collected, yet the first action has determined that the garbage collection of an in-server proxy does not trigger `decref`.) The server attribute `id_to_local_proxy_obj` is addressed at severl places, and I have not understood the author's design rational around this, but this is clearly a bug: `server.id_to_local_proxy_obj` only gets entries added and never gets entries removed. Once an in-server object is represented by an in-server proxy at any point, hence an entry for it is added to `server.id_to_local_proxy_obj`, then the object will live on in the server forever, even after all proxies (inside or outside of the server) to it have gone.
+These two actions suggest that a proxy that has been passed from outside of the server into it is not tracked by the server's `incref`/`decref` mechinism. Oddly, the `multiprocessing.managers` module does not contain a line that takes an entry off `server.id_to_local_proxy_obj`. (This is not that odd, though, because if there were such a line, it would likely be in `Server.decref` to be called when a in-server proxy is garbage collected, yet the first action has determined that the garbage collection of an in-server proxy does not trigger `decref`.) This is clearly a bug: `server.id_to_local_proxy_obj` only gets entries added and never gets entries removed. Once an in-server object is represented by an in-server proxy at any point, hence the object is referenced by `server.id_to_local_proxy_obj`, then it will live on in the server forever, even after all proxies to it (inside or outside of the server) are gone.
 
-We use an example to show this problem.
+We can use an example to show this problem.
 
 ```python
 from multiprocessing import get_context
@@ -1185,25 +1189,68 @@ $ python3 test_serverside_proxy.py
 
 In this example, we created a dict and a list in the server, with proxies `mydict` and `mylist`, respectively. Then we added `mylist` (the proxy object, not the real list) to the dict. At this point, there are two entries in `server.id_to_refcount` (one for the dict, one for the list), two entries in `server.id_to_obj` (one for the dict, one for the list), and one entry in `server.id_to_local_proxy_obj` (for the list proxy in the dict).
 
-Then we deleted `mylist` in the client process, which caused the ref count of the list in `server.id_to_refcount` to drop to 0, therefore removed the entry for the list from `server.id_to_obj`. (If there were no other references to the list, then this removal would have made the list "orphaned" or "dangling", hence garbage collected. But, there is another reference to it---in `server.id_to_local_proxy_obj`, hence the list lives on.) At this point, there is one entry in `server.id_to_refcount` (for the dict), one entry in `server.id_to_obj` (for the dict), and one entry in `server.id_to_local_proxy_obj` (for the list proxy in the dict).
+Then we deleted `mylist` in the client process, which caused the ref count of the list in `server.id_to_refcount` to drop to 0, therefore removed the entry for the list from `server.id_to_obj`. (If there were no other references to the list, then this removal would have made the list "orphaned" or "dangling", hence garbage collected. However, there is another reference to it in `server.id_to_local_proxy_obj`, hence the list lives on.) At this point, there is one entry in `server.id_to_refcount` (for the dict), one entry in `server.id_to_obj` (for the dict), and one entry in `server.id_to_local_proxy_obj` (for the list proxy in the dict).
+The server-side list is correctly alive, because it is represented by its proxy in the dict (both in the server), but it is not accounted for in `server.id_to_refcount` nor `server.id_to_obj`.
 
-Finally, we deleted the list proxy from the dict, using the dict proxy `mydict`. At this point, the list in the server became really orphaned---there is no proxy for it outside of the server and no user of it inside the server. However, it is referenced by the never-to-be-deleted entry in `server.id_to_local_proxy_obj`, hence the list will live on although it is no longer accessible from either the user space or the server space, because no code reaches into `server.id_to_local_proxy_obj` to excavate useful things.
+Finally, we deleted the list proxy from the dict iva the dict proxy `mydict`. At this point, the list in the server became really orphaned---there is no proxy of it outside of the server and no user or proxy of it inside the server. However, it is referenced by the never-to-be-deleted entry in `server.id_to_local_proxy_obj`, hence the list will live on although it is no longer accessible by the user or the server, because no code reaches into `server.id_to_local_proxy_obj` to excavate useful things.
 
 How can we fix this?
 
-My proposal is to treat all proxies, inside or outside the server process, in one consistent way. This involves two changes:
+A reasonable direction is to treat all proxies, inside or outside the server process, in one consistent way. This involves two changes:
 
-1. Do not let `manager_owned=True` skip `incref` in proxy initialization ([BaseProxy], lines 12-13) and consequently `decref` in proxy teardown; let `incref` and `decref` take place whether `manager_owned` is `True` or `False` (also [BaseProxy], lines 56-58). This change will make sure deleting an in-server proxy object will trigger appropriate ref-count changes.
-2. Do not use `server.id_to_local_proxy_obj` and replicate entries to it from `server.id_to_obj`. Just use `server.id_to_obj` to track all proxies, inside or outside of the server.
+1. Do not let `manager_owned=True` skip `incref` in proxy initialization and consequently `decref` in proxy teardown ([BaseProxy], lines 56-58) ; instead, let `incref` and `decref` take place whether `manager_owned` is `True` or `False`. This change will make sure deleting an in-server proxy object will trigger appropriate ref-count decrement.
+2. Do not use `server.id_to_local_proxy_obj` and replicate entries to it from `server.id_to_obj`. Just use `server.id_to_obj` to track all proxies, wherever they reside.
 
-These changes are simple to make but involve multiple code blocks. We've omitted a listing of the code changes.
-After these changes, the parameter `manage_owned` for `BaseProxy.__init__` has no impact, hence this parameter may as well be removed altogether.
+These changes are supported by the fixes to pickling discussed above.
+After these changes, the parameter `manager_owned` for `BaseProxy.__init__` has no impact, hence this parameter may as well be removed.
 
 
 ## Exposed methods
 
+In `multiprocessing.managers`, methods of a server-side object that are made callable via a proxy are said to be "exposed".
+This is a tuple of method names.
+The specification of this value appears in two places. First, `BaseManager.register` has an optional parameter `exposed` ([BaseManager], line 19); second, a custom proxy class may have a class attribute `_exposed_` ([BaseManager], line 30).
+This value is also affected by "method_to_typeid", which indicates what methods of a server-side object return server-side objects (as opposed to "regular" values that are sent back to the client). Similar to `exposed`, `method_to_typeid` is an optional parameter for `BaseManager.register` ([BaseManager], line 20), in the meantime a custom proxy class may have a class attribute `_method_to_typeid_` ([BaseManager], line 33).
+The value of `exposed` for a registered `typeid` is part of the registry that is sent to the server object ([BaseManager], lines 40-42).
+
+When a server-side object is created, its value of `exposed` is determined and sent back to the client.
+The determination involves two steps:
+
+1. Get the value of `exposed` from the registry. If it is `None`, use the "public methods" of the object ([Server], lines 92-93, 103-104).
+2. The methods listed in `method_to_typeid` are added to the `exposed` determined in the last step ([Server], lines 105-110).
+
+Once the client receives `exposed` from the server, its usage has two situations:
+
+1. If `proxytype` is `AutoProxy`, then these methods are dynamically defined on the dynamically created subclass of `BaseProxy` (see functions `AutoProxy` and `MakeProxyType` listed in [Part 1](https://zpz.github.io/blog/python-mp-manager-1/)).
+2. If `proxytype` is a custom subclass of `BaseProxy`, then `exposed` is passed to `BaseProxy.__init__` as an argument ([BaseProxy], line 9). However, the argument is simply ignored by `BaseProxy.__init__`.
+
+The treatment of this subject is a minor mess, especially when the argument `proxytype` to `BaseManager.register` is a custom class (as opposed to `AutoProxy`). Assuming `proxytype` is `MyProxy`,
+there are at least these several confusing aspects:
+
+1. There are many factors affecting its value: arguments `exposed` and `method_to_typeid` to `BaseManager.register`; class attributes `MyProxy._exposed_` and `MyProxy._method_to_typeid_`. Worse, if the argument `exposed` is specified, then `MyProxy._exposed_` is ignored (!), but `method_to_typeid` and `MyProxy._method_to_typeid_` still have an impact.
+2. However this is specified during registration and determined during server-side object creation, its value, which is returned from the server, received by the client, and passed to `MyProxy.__init__`, is *simply ignored*!!
+3. What methods or callable attributes are available on a `MyProxy` instance are totally determined by the class defination as usual. The class attribute `MyProxy._exposed_`, the argument `exposed`, or anything else, plays no role whatsoever!!!
+
+This is not an isolated bug that can be fixed locally. To improve on this requires some minor re-design. The [module mpservice.multiprocessing.server_process of the package mpservice](https://github.com/zpz/mpservice/blob/main/src/mpservice/multiprocessing/server_process.py) presents some changes centered on these simplifications:
+
+1. Encourage explicit definition of `BaseProxy` subclasses.
+2. Do not use class attribute `_exposed_`.
+3. Remove parameters `exposed` to `BaseProxy.__init__` and `BaseManager.register`.
+4. When `proxytype` is `AutoProxy` in the registry, the exposed methods are the object's public methods plus those listed in `method_to_typeid`.
+
+
+
 ## Exceptions in the server
+
+When user calls a method of a server-side object via its proxy, the call is handled in the server by the method `Server.serve_client`.
+The method returns traceback info in several cases, mainly concerning errors in the calling mechanism itself.
+In probably the most common error situations, that is, erros raised in the method in question of the server-side object,
+the exception object itself is returned to the client ([Server], lines 42-43).
+After pickling and unpickling, any traceback info is lost.
+In nontrivial code, this is not nearly as useful as it can be.
+
+This can be improved using the traceback-preserving helper class `_ExceptionWithTraceback` provided by the [standard module concurrent.futures](https://github.com/python/cpython/blob/3.10/Lib/concurrent/futures/process.py).
 
 
 Fixes and changes to the standard module that are discussed in this article are implemented in
-[the module `mpservice.multiprocessing.server_process` of the package `mpservice`](https://github.com/zpz/mpservice).
+[the module mpservice.multiprocessing.server_process of the package mpservice](https://github.com/zpz/mpservice).
