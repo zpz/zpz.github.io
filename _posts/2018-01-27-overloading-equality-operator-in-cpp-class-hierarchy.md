@@ -308,3 +308,25 @@ Fifth, why is the call to the parent's `_equals`?  Well, if not, then data membe
 
 Sixth, why is `_equals` kept `protected` and `virtual` throughout? It needs to be `protected`, rather than `private`, because it needs to be called by subclasses. It needs to be `virtual`, even in a 'leaf' class, because any class in this hierarchy may be subclassed later either in our own code or in user's separate code, and in that situation we need polymorphism to remain functional.
 
+### [Correction]
+
+In April 2024, Jeremy Overesch pointed out an issue:
+
+<div style="padding-left: 4rem;">
+<p>In the `_equals` functions, there is a line similar to the following, which I believe is incorrectly doing a copy:</P>
+
+{% highlight c++ %}
+auto that = static_cast<B const &>(other);
+{% endhighlight %}
+
+<p>
+Unfortunately, auto by default does a copy. In order to do a reference, it needs to be explicit:</p>
+
+{% highlight c++ %}
+auto& that = static_cast<B const &>(other);
+{% endhighlight %}
+</div>
+
+
+Thanks, Jeremy!
+
