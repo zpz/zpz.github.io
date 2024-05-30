@@ -8,7 +8,8 @@ tags: [Python]
 In [Part 1](https://zpz.github.io/blog/python-mp-manager-1/) 
 and [Part 2](https://zpz.github.io/blog/python-mp-manager-2/)
 of this series, we have gained basic understanding of the standard module `multiprocessing.managers` and fixed a few bugs in it.
-In this article, we will focus on some enhancements to it that are implemented in
+In this article, we will move on to make some enhancements to it.
+The complete code of these enhancements is available in
 the [module mpservice.multiprocessing.server_process in the package mpservice](https://github.com/zpz/mpservice).<!--excerpt-->
 
 
@@ -16,35 +17,39 @@ the [module mpservice.multiprocessing.server_process in the package mpservice](h
 
 In the standard module, there are two situations where a new object is created in the server and is represented by a proxy:
 
-1. When user registers a class with `BaseManager` and specifies `create_method=True` (which is the default), a "creation method" is added to the `BaseManager` class. Later when the user calls this method on a manager object, the manager calls `Server.create` of the server, which creates an instance of the registered class, keeps it in the server, and returns relevant info to the manager. Subsequently, the manager constructs a proxy object, pointing to the server-side object, and returns it to the user.
-2. If a certain method of a registered class appears in the `method_to_typeid` of the registry, it indicates that calling this method on a server-side instance of said class will not return the output of the method directly to the user; instead, the output will stay in the server (possibly after some processing, depending on `method_to_typeid`), and relevant info will be returned to the caller in the client process. Eventually, the user will get a proxy. This process involves `BaseProxy._callmethod`, `Server.serve_client`, and `Server.create`.
+1. When user registers a class with `BaseManager` and specifies `create_method=True` (which is the default), a "creation method" is added to the `BaseManager` class. Later when the user calls this method on a manager object, the manager calls `Server.create` of the server, which creates an instance of the registered class, keeps it in the server, and returns relevant info to the manager. Subsequently, the manager constructs a proxy for the server-side object and returns it to the user.
+2. If a certain method of a registered class appears in the `method_to_typeid` of the registry, it indicates that calling this method on a server-side instance of said class (via a proxy in a client process) will not return the output of the method "as is" to the user; instead, the output will stay in the server (possibly after some processing, depending on the info in `method_to_typeid`), and relevant info will be returned to the caller in the client process. Eventually, the user will get a proxy. This process involves `BaseProxy._callmethod`, `Server.serve_client`, and `Server.create`.
 
 The standard module also allows "nested proxies" in this sense: method calls on a proxy object may take another proxy object as argument. For example, say we have a dict proxy `mydict` and a list proxy `mylist`, we can do `mylist.append(mydict)` or `mydict['x'] = mylist`. The effect of such calls is that a proxy object gets passed into the server process (through pickling/unpickling) and added to a server-side object. In other words, a proxied object (not a proxy object!) now contains another proxy object.
 
 In [Part 2](https://zpz.github.io/blog/python-mp-manager-2/), we have hardened the implementation of pickling and unpickling of proxy objects. With that (along with another fix on nested proxies), the "nested proxy" above is transparent to the server code---the proxy object is treated exactly like any other value when it enters or leaves the server process.
 
 In the two situations above, a server-side object is created in the server, followed by a proxy object created in the client process.
-We can imagine another scenario where both a server-side object and its proxy are created in the server. Consider this example:
+We can imagine scenarios where both a server-side object and its proxy are created in the server. Consider the following scenario.
 
-We have registered a class `MyClass`. Among others, this class has a method called `mymethod`. This method eventually creates a list called `mylist`,
-which contains a number of elements, including one that is a dict. However, this is not a "regular" dict---after the dict, called `mydict`, is created, it is not "directly" placed in `mylist`; instead, this dict is managed by the server as a "proxied" object, and a proxy to it is placed in `mylist`. Suppose `mylist` is `[28, ('a', 'b'), <proxy_to_mydict>, "123 Main Street, New York City"]`.
+We have registered a class `MyClass`. Among others, this class has a method called `mymethod`. This method creates a list called `mylist`,
+which contains a number of elements, including one that is a dict. However, this is not a "regular" dict---after the dict, called `mydict`, is created, it is not "directly" placed in `mylist`; instead, this dict is managed by the server as a "proxied" object, and a proxy to it is placed in `mylist`. In the end, `mylist` may look like this: `[28, ('a', 'b'), <proxy_to_mydict>, "123 Main Street, New York City"]`.
+Keep in mind that `mymethod` happens in the server process.
 
-As to the return of `mymethod`, there are also two situations. In the first situation, the method returns a proxy to a server-side list (that is, `mylist`). In this case, during the call and return, individual elements of `mylist` are untouched. Only identification info about `mylist` is returned, based on which a proxy object is constructed. Only when user accesses the third element of the target list via its proxy, the proxy to `mydict` is returned to the user (through pickling/unpickling). From that point on, the proxy to `mydict` can be used, independently from the proxy to `mylist`, to manipulate the server-side `mydict`.
+As to the return of `mymethod` or what the client receives, there are two situations. In the first situation, the method returns a proxy to the server-side `mylist`. In this return, individual elements of `mylist` are undisturbed. Only meta info about `mylist` is returned, based on which a proxy object is constructed. When user accesses the third element of `mylist` via its proxy, `<proxy_to_mydict>` is returned to the user (through pickling/unpickling). From that point on, the proxy to `mydict` can be used, independent of the proxy to `mylist`, to manipulate the server-side `mydict`.
 
-In the second situation, the method returns `mylist` as a "regular" value, that is, the list is pickled, passed out of the server process, and unpickled. The user gets a regularly-looking list object, `[28, ('a', 'b'), <proxy_to_mydict>, "123 Main Street, New York City"]`. The object `mylist` in the server is gone. The elements `28`, `('a', 'b')`, `"123 Main Street, New York City"` that the user has obtained are plain values no no ties to the server. Of course, there is one element that is special, and it is a proxy object to `mydict`, which is alive in the server. User can use this proxy to manipulate `mydict` as expected.
+In the second situation, the method returns `mylist` as a "regular" value, that is, the list is pickled, passed out of the server process, and unpickled. The user gets a regularly-looking list object, `[28, ('a', 'b'), <proxy_to_mydict>, "123 Main Street, New York City"]`. The object `mylist` in the server is gone. The list elements are plain values now with no ties to server, except for the third element,
+which is a proxy object to the server-side `mydict`. User can use this proxy to manipulate `mydict` as expected.
 
-You can think up use cases for such proxies that are created in the server and "embedded" in another object. We will not be concerned about that here. 
+To summarize, the two situations are: (1) method returns a proxy; the proxied object contains another proxy; (2) method returns a regular object that contains a proxy somewhere in it.
+You can think up real world applications where this can be useful.
+There is one problem, though, and that is, *the standard module does not have a way to create this kind of `mylist` in the server*.
 
-There is one problem, though, and that is, the standard module does not have a way to create this kind of `mylist` in the server.
-
-What is needed is a way to say: "this object is replaced by a proxy to it, and the real thing is managed by the server separately". We create a function called `managed` for this purpose. The gist of it is listed below.
+What is needed is a way to express, in server-side code: "this object is replaced by a proxy to it, and the real thing is managed by the server separately". We create a function called `managed` for this purpose. The gist of it is listed below.
 
 
 ```python
 
 def get_server(address=None):
-    # If `None`, the caller is not running in the manager server process.
-    # Otherwise, the return is the `Server` object that is running in the current process.
+    """
+    If `None`, the caller is not running in the manager server process.
+    Otherwise, the return is the `Server` object that is running in the current process.
+    """
     server = getattr(current_process(), '_manager_server', None)
     if server is None:
         return None
@@ -95,48 +100,49 @@ class Server(multiprocessing.managers.Server):
         return proxy
 ```
 
-You may wonder that this change to the `Server.create` API disrupts some other code. Yes, it does, and we have made other changes now shown here. Let's review all the scenarios where a proxy object is created.
+You may wonder that this change to the `Server.create` API disrupts some other code. Yes, it does, and we have made other changes not shown here. Let's review all the scenarios where a proxy object is created.
 
-1. User calls a "creation method" on the manager. The server creates a server-side object and returns meta info. The "creation method" constructs a proxy object and returns.
-2. User calls `BaseProxy._callmethod` for a "proxied" method that appears in `method_to_typeid`. The server calls the method on the target object, creates a server-side object and returns meta info. `BaseProxy._callmethod` constructs a proxy object and returns.
-3. User code of a registered class uses `managed` to create a server-side object and its proxy in the server.
+1. User calls a "creation method" on the manager. The server creates a server-side object and returns meta info. The "creation method" constructs a proxy object.
+2. User calls `BaseProxy._callmethod` for a "proxied" method that appears in `method_to_typeid`. The server calls the method on the target object, creates a server-side object and returns meta info. `BaseProxy._callmethod` constructs a proxy object.
+3. User code of a registered class uses `managed` to create a server-side object and its proxy; this happens all in the server.
 4. Outside of the server process, a proxy object is pickled and passed to another process, in which a new proxy object is created out of unpickling.
 
 
 The fourth case does not create a new server-side object and does not raise any question.
-The first two cases can be implemented by constructing a proxy in the server and returning it, as opposed to returning relevant info and constructing a proxy outside the server.
-Ultimately, the first three cases are all supported by the changed `Server.create`, which returns a proxy object.
+The first two cases can be implemented, using `managed`, by constructing a proxy in the server and returning it, as opposed to returning meta info and constructing a proxy outside the server.
+Ultimately, the first three cases are all supported by the changed `Server.create`, which returns a proxy for a server-side object that has just been created.
 
 We have learned that `method_to_typeid` in the registry of a class indicates methods of the class that will return proxies rather than "regular" values.
 This mechanism is no longer necessary, as we can wrap the method's output by `managed` to achieve the same effect.
-There is one situation that may prefer the use of `method_to_typeid`. In this situation, the class code has no consideration for its being used in a server process;
-when it is used this way (possibly by a different author in different projects), `managed` would require changes to the class code (possibly by subclassing), whereas `method_to_typeid` could leave the class code intact.
+This is how the second situation could be re-implemented as hinted above.
 
-We'll demonstrate the use of `managed` after the next section.
+There is one scenario where the use of `method_to_typeid` may be preferred. In this scenario, the code of the registered class has no considerations for its being used in a server process.
+When it is used in a server process, possibly by a different author in different projects, `managed` would require changes to the class code, whereas `method_to_typeid` would leave the class code intact.
+
+We'll demonstrate the use of `managed` in a later section. Now on to another enhancement.
 
 
 ## Shared memory
 
 
-The standard module `multiprocessing.shared_memory` provides class `SharedMemory` that enables a user to allocate a block of memory and access it from multiple processes. Once allocated, a piece of shared memory is not "managed" by the `SharedMemory` instance. The instance merely remembers the unique *name* of the memory block, and provides ways to communicate with the "system" about the named memory block.
-In particular, `SharedMemory` has methods for the user to declare that the memory is no longer needed anywhere hence it should be released.
+The standard module `multiprocessing.shared_memory` provides class `SharedMemory` that enables a user to allocate a block of memory and access it from multiple processes. The allocated memory is not "managed" by the `SharedMemory` instance. The instance merely remembers the unique *name* of the memory block, and provides ways to communicate with the "system" about the named memory block.
+In particular, `SharedMemory` has methods for the user to declare that the memory is no longer needed anywhere hence should be released.
 *The user must explicitly call these methods.*
 The reason is that the demise of a `SharedMemory` instance in any process contains no info about whether the memory is still used by any other process.
-It is like the user has to manage the "ref count" of the memory block manually.
-This is an inconvenience.
+This is like the user has to manage the "ref count" of the memory block manually.
+It is clearly an inconvenience.
 
-The standard module `multiprocessing.managers` provides a subclass of `BaseManager` called `SharedMemoryManager` that helps manage "shared memory".
-All shared memory blocks created by this facility are released when the manager (and server) reaches end of life, hence the user does not need to manually release them. However, there is a clear drawback in the timing of the release: it is only better than never, as it is quite late.
-This is as if Python does not garbage collect any object ever created in a program until the program terminates.
+The standard module `multiprocessing.managers` goes one step further with a subclass of `BaseManager` called `SharedMemoryManager` that helps manage shared memory.
+All shared memory blocks created by this facility are released when the manager (and server) reaches end of life, hence the user does not need to manually release them. However, the timing of the release leaves much to be desired: it is only better than never, as it is quite late.
+This is as if Python did not garbage collect any object ever created in a program until the program terminates.
 
 Of course, Python does better than that. It destroys objects as soon as it can tell the object is no longer used, regardless of how long the program will continue.
 We would like shared memory to work the same way: a block is released as soon as Python can tell it is no longer used, regardless of how long the manager/server will continue.
 
-We achieve this goal in two steps. First step, we create a class called `MemoryBlock` that controls the lifetime of a shared memory block.
-In contrast to a `SharedMemory` instance, which communicates to "the system" about a memory block that is managed by the latter,
-a `MemoryBlock` instance (in effect) *hosts* a memory block and lives/dies with it together.
-Most importantly, when a `MemoryBlock` object is garbage collected, we make sure the shared memory it hosts is released.
-This is not hard; the gist of the class definition is as follows.
+Our solution achieves this goal in two steps. First, we define a class called `MemoryBlock` that controls the lifetime of a shared memory block.
+In contrast to a `SharedMemory` instance, which communicates with "the system" about a memory block that is managed by the latter,
+a `MemoryBlock` instance in effect *hosts* a memory block and makes it live/die along with its host.
+The gist of the class definition is as follows.
 
 ```python
 class MemoryBlock:
@@ -144,7 +150,7 @@ class MemoryBlock:
     def __init__(self, size: int):
         assert size > 0
         self._mem = SharedMemory(create=True, size=size)
-        self.release = util.Finalize(self, type(self)._release, args=(self._mem, ), exitpriority=10)
+        self.release = multiprocessing.util.Finalize(self, type(self)._release, args=(self._mem, ), exitpriority=10)
 
     def _name(self):
         # This is for use by ``MemoryBlockProxy``.
@@ -174,16 +180,16 @@ class MemoryBlock:
         self.release()
 ```
 
-
-A new block of memory is allocated in `__init__`; the release of the memory is guaranteed by `self.release`.
+A new memory block is allocated in `__init__` and released when the `MemoryBlock` instance is garbage collected, guaranteed by `self.release`.
+(See [this block post](https://zpz.github.io/blog/guaranteed-finalization-without-context-manager/) about `Finalize`.)
 From now on, we will use `MemoryBlock` for shared memory and never reach for the raw `SharedMemory`. The lifetime of the memory block is taken care of by Python's garbage collector, just like any other object.
 
 This solves the "auto release" problem; we have yet to address how to "share" it across processes.
-We need a `MemoryBlock` instance to live as long as needed while being accessed from multiple processes.
-This is squarely the strength of a "manager".
+For effective and flexible sharing, we need a `MemoryBlock` instance to live as long as needed while being accessed from multiple processes,
+while the processes may not coordinate between themselves (such as using one of the synchronization mechanisms).
+This is squarely where a "manager" shines.
 
-So, the second step of this enhancement is to require that `MemoryBlock` instances always reside in the server process of a "manager", and are accessed from other processes via proxies. We define a proxy class as follows.
-
+So, the second step of the solution requires that `MemoryBlock` instances always reside in the server process of a manager, and are accessed from other processes via proxies. We know that the server-side `MemoryBlock` object will live as long as there is one or more proxy objects out there targeting it, and this does not require any coordination between the proxies. The proxy class is defined as follows.
 
 
 ```python
@@ -214,7 +220,7 @@ class MemoryBlockProxy(BaseProxy):
         return self._mem.buf
 ```
 
-Now we take care of registration:
+Finally, let's hook it up by registration:
 
 
 ```python
@@ -224,7 +230,6 @@ class Server(multiprocessing.managers.Server):
 
 class ServerProcess(multiprocessing.managers.BaseManager):
     _Server = Server
-
     ...
 
 
@@ -245,7 +250,7 @@ ServerProcess.register(
 managed_memoryblock = functools.partial(managed, typeid='ManagedMemoryBlock')
 ```
 
-Let's use a small example to demonstrate creating a shared memory block on through the manager and using it in multiple processes.
+In the example below, a shared memory block is created via the manager and is used in multiple processes.
 
 
 ```python
@@ -311,7 +316,7 @@ if __name__ == '__main__':
     main()
 ```
 
-Running this script got
+Running this script got ths following:
 
 ```sh
 $ python3 test_sharedmem.py 
@@ -340,7 +345,7 @@ $ python3 test_sharedmem.py
   'type': 'MemoryBlock'}]
 ```
 
-## Example
+## A fancy example
 
 Time to show a *fancy* example!
 

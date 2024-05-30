@@ -1258,3 +1258,5 @@ This can be remedied using the traceback-preserving helper class `_ExceptionWith
 
 Fixes and changes discussed in this article are implemented in
 [the module mpservice.multiprocessing.server_process of the package mpservice](https://github.com/zpz/mpservice).
+
+Our exploration continues in [Part 3](https://zpz.github.io/blog/python-mp-manager-3/).
