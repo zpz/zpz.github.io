@@ -40,12 +40,8 @@ The web site has some management and demonstration capabilities, including dynam
 This idea is functional on a proof-of-concept level but not polished.
 Progress is slow due to lack of time.
 
-Example client code resides in the
-<a href="https://github.com/anchored-inversion">Github organization "anchored-inversion"</a>.
-
 
 ## Open-source Coding Projects
 
-I do not have any large software project in the open.
 I have a [github account](https://github.com/zpz/),
-which contains some small experiments and utilities.
+hosting some personal projects. The pinned ones are serious, solid, and mostly active.
